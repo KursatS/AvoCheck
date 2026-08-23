@@ -1,6 +1,6 @@
 # 🚀 RecciTek WCheck
 
-[![Version](https://img.shields.io/badge/version-2.5.6-blue.svg)](https://github.com/KursatS/RecciTek-WCheck)
+[![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)](https://github.com/KursatS/RecciTek-WCheck)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Electron](https://img.shields.io/badge/electron-34.0.0-purple.svg)](https://electronjs.org)
 [![Vite](https://img.shields.io/badge/vite-6.4.1-646CFF.svg)](https://vitejs.dev)
@@ -24,14 +24,16 @@
 
 ---
 
-## ✨ Güncel Özellikler (v2.5.6)
+## ✨ Güncel Özellikler (v2.6.1)
 
-- ⚡ **Akıllı Panodan Garanti Sorgulama**: Seri numaralarını panodan kopyaladığınız anda anında algılar. Özel hafif Regex HTML parser ile Recci ve KVK servis verilerini milisaniyeler içinde ekrana getirir.
+- ⚡ **Akıllı Panodan Garanti Sorgulama**: Seri numaralarını panodan kopyaladığınız anda anında algılar. Özel sıfır tahsisli Regex HTML parser ile Recci ve KVK servis verilerini milisaniyeler içinde ekrana getirir.
+- 📋 **Hassas Model-Renk Kopyalama & Özelleştirilebilir Kısayol**: Popup üzerindeki kopyalama butonu veya kısayol (`Ctrl+Shift+C`) ile doğrudan `MODEL - RENK` (KVK için `GÜVENCE BİTİŞ TARİHİ : ...`) formatında temiz panoya alma. Kısayol tuşu **Ayarlar > Kısayol Yöneticisi** üzerinden dinamik olarak değiştirilebilir.
 - 🏷️ **Recci İthalat & Fatura Kontrol Rozeti**: Türkiye garantili olup sistemde süresi dolmuş görünen cihazlar için canlı yeşil `✓ RECCI GARANTİLİ` ve turuncu `(SÜRESİ DOLMUŞ - FATURA KONTROL)` akıllı rozet gösterimi.
 - 🔠 **AHK Tarzı "Büyük Harf Yapıştır" (Ctrl+Shift+V)**: Panodaki metinleri Türkçe karakter uyumlu olarak otomatik büyük harfe dönüştürüp hızlıca yapıştırma imkanı.
 - 📢 **Canlı Cihaz Çağrı (Cihaz Sor) Sistemi**: Kargo kabul ve servis personeli arasında anlık cihaz sorgulama, canlı yanıt takibi ve Web Audio API tabanlı pürüzsüz bildirim sesleri (`Chime / Pop`).
 - ⚠️ **Öncelikli Cihaz Takip Sistemi**: Acil takibe alınan cihazları Firestore veritabanı üzerinden tarih/saat damgasıyla canlı senkronize etme ve masaüstü popup bildirimleri fırlatma.
-- 📝 **Excel Z Raporu Analizi**: Servis kayıt dosyalarını sürükle-bırak yöntemiyle inceleme; en son 5 güne ait toplam kayıt sayılarını, model dağılımlarını ve personel bazlı çalışma adetlerini grafiksel görselleştirme.
+- 📝 **Excel Z Raporu Analizi**: Servis kayıt dosyalarını sürükle-bırak yöntemiyle inceleme; en son 5 güne ait toplam servis kayıt sayılarını, model dağılımlarını ve personel (Kaydı Açan) bazlı adetleri grafiksel görselleştirme.
+- 🛡️ **GPU Donma / Siyah Ekran Koruması**: Dahili Intel HD Graphics ve ofis bilgisayarlarında Chromium swapchain kilitlenmelerini engelleyen otomatik kurtarma ve donanım hızlandırma optimize parametreleri.
 
 ---
 
@@ -66,8 +68,9 @@ Oluşturulan kurulum dosyası `release/` klasörü altına kaydedilecektir.
 
 1. **Seri Numarası Kopyalayın**: Panoya seri numarasını kopyaladığınız an sistem otomatik olarak garanti durumunu sorgular.
 2. **Popup'ı İnceleyin**: Ekranın sağ alt köşesinde beliren renk kodlu (Yeşil: RECCI, Mavi: KVK, Gri/Turuncu: Fatura Kontrol) masaüstü popup'ı ile durumu anında görün.
-3. **Cihaz Çağrısı Atın**: Kargo kabul personelinden "Cihaz Sor" sekmesiyle anlık cihaz bulunma çağrısı yapın.
-4. **Z Raporu Yükleyin**: Servis Excel dosyanızı sürükleyip bırakarak günlük personel ve model istatistiklerini raporlayın.
+3. **Kısayolla Kopyalayın**: `Ctrl+Shift+C` (veya belirlediğiniz kısayol) ya da Popup'taki `Kopyala` butonuna basarak doğrudan `MODEL - RENK` formatını panoya alın.
+4. **Cihaz Çağrısı Atın**: Kargo kabul personelinden "Cihaz Sor" sekmesiyle anlık cihaz bulunma çağrısı yapın.
+5. **Z Raporu Yükleyin**: Servis Excel dosyanızı sürükleyip bırakarak günlük personel ve model istatistiklerini raporlayın.
 
 ---
 
@@ -83,8 +86,9 @@ RecciTek-WCheck/
 │   ├── warrantyChecker.ts # Recci & KVK Garanti Scraper
 │   ├── cacheManager.ts    # SQLite Veritabanı (better-sqlite3)
 │   ├── ticketService.ts   # Firestore Entegrasyonu & Öncelikli Cihazlar
-│   ├── utils/             # Yardımcı Mantık Kütüphaneleri (Z-Report, Debounce, Toast)
-│   └── *.html             # Modern UI Arayüz Dosyaları
+│   ├── bonusCalculator.ts # Z Raporu Excel Parser
+│   ├── utils/             # Modüler UI ve İş Mantığı (Z-Report, Settings, Admin, Toast)
+│   └── *.html             # Modern Glassmorphic Arayüz Dosyaları
 ├── release/               # Derlenen kurulum (.exe) dosyaları
 ├── package.json           # Proje paketleri, bağımlılıklar ve versiyon
 └── README.md              # Kullanım ve Teknik Dokümantasyon
