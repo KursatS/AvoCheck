@@ -10,8 +10,9 @@ export interface AppSettings {
   preventDuplicatePopup: boolean;
   clipboardUpperEnabled?: boolean;
   shortcuts?: {
-    clearCache: string;
-    toggleMonitoring: string;
+    copyModelColor?: string;
+    clearCache?: string;
+    toggleMonitoring?: string;
   };
   role?: 'kargo_kabul' | 'mh' | 'admin';
   personnelName?: string;
@@ -48,8 +49,9 @@ export function loadSettings(): AppSettings {
     preventDuplicatePopup: true,
     clipboardUpperEnabled: true,
     shortcuts: {
+      copyModelColor: 'CommandOrControl+Shift+C',
       clearCache: 'CommandOrControl+Shift+X',
-      toggleMonitoring: 'CommandOrControl+Shift+C'
+      toggleMonitoring: 'CommandOrControl+Shift+M'
     },
     role: 'kargo_kabul',
     personnelName: '',

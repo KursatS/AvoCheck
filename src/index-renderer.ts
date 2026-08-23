@@ -34,8 +34,9 @@ const addPrioBtn = document.getElementById('add-priority-btn')!
 // Settings View Elements
 const sPersonnelName = document.getElementById('personnel-name') as HTMLInputElement
 const sUserRole = document.getElementById('user-role') as HTMLInputElement
+const sShortcutModelCopy = document.getElementById('shortcut-model-copy') as HTMLInputElement
 const sShortcutClear = document.getElementById('shortcut-clear') as HTMLInputElement
-const sShortcutCopy = document.getElementById('shortcut-copy') as HTMLInputElement
+const sShortcutMonitoring = document.getElementById('shortcut-monitoring') as HTMLInputElement
 const sPopupSize = document.getElementById('popup-size') as HTMLSelectElement
 const sPopupTimeout = document.getElementById('popup-timeout') as HTMLInputElement
 const sAutoStart = document.getElementById('auto-start') as HTMLInputElement
@@ -464,7 +465,7 @@ const { loadPriorityDevices, focusPriorityDevice } = initPriorityLogic(api, {
 })
 
 const { loadSettingsToUI } = initSettingsLogic(api, {
-    sPersonnelName, sUserRole, sShortcutClear, sShortcutCopy,
+    sPersonnelName, sUserRole, sShortcutModelCopy, sShortcutClear, sShortcutMonitoring,
     sPopupSize, sPopupTimeout, sAutoStart, sPreventDuplicate, sLogoutBtn,
     sClipboardUpper
 }, refreshSidebarProfile)

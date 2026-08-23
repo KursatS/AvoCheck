@@ -706,14 +706,15 @@ function registerShortcuts() {
 
   if (!currentSettings || !currentSettings.isLoggedIn) return; // Login olmadıysa kısayolları kaydetme
 
-  // Always register the double copy shortcut if enabled
-  if (currentSettings.doubleCopyEnabled) {
+  // Register the model - color copy shortcut if enabled
+  if (currentSettings.doubleCopyEnabled !== false) {
+    const copyShortcut = currentSettings.shortcuts?.copyModelColor || 'CommandOrControl+Shift+C';
     try {
-      globalShortcut.register('CommandOrControl+Shift+C', () => {
+      globalShortcut.register(copyShortcut, () => {
         handleDoubleCopy();
       });
     } catch (e) {
-      console.error('Failed to register double copy shortcut:', e);
+      console.error('Failed to register model copy shortcut:', e);
     }
   }
 

@@ -385,7 +385,14 @@
       }
 
       copyBtn.onclick = () => {
-        const textToCopy = `${info.serial}\n${formattedModelStr}\n${info.warranty_status || ''}`;
+        let textToCopy = '';
+        if (status.includes('KVK') && info.warranty_end) {
+          textToCopy = `GÜVENCE BİTİŞ TARİHİ : ${info.warranty_end}`;
+        } else if (formattedModelStr) {
+          textToCopy = formattedModelStr;
+        } else {
+          textToCopy = info.serial || '';
+        }
         navigator.clipboard.writeText(textToCopy);
         const originalText = copyBtnText.textContent;
         copyBtnText.textContent = 'Kopyalandı!';

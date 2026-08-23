@@ -6,13 +6,13 @@ export function initSettingsLogic(
     refreshSidebarProfile: () => void
 ) {
     const {
-        sPersonnelName, sUserRole, sShortcutClear, sShortcutCopy,
+        sPersonnelName, sUserRole, sShortcutModelCopy, sShortcutClear, sShortcutMonitoring,
         sPopupSize, sPopupTimeout, sAutoStart, sPreventDuplicate, sLogoutBtn,
         sClipboardUpper
     } = elements
 
     let initialRole = ''
-    const logoutLabel = 'Oturumdan \u00c7\u0131k\u0131\u015f Yap'
+    const logoutLabel = 'Oturumdan Çıkış Yap'
 
     async function loadSettingsToUI() {
         const s = await api.getSettings()
@@ -20,13 +20,14 @@ export function initSettingsLogic(
         sPersonnelName.value = (s.personnelName || '').toUpperCase()
         let displayRole = s.role
         if (displayRole === 'kargo_kabul') displayRole = 'Kargo Kabul'
-        else if (displayRole === 'mh') displayRole = 'M\u00fc\u015fteri Hizmetleri'
-        else if (displayRole === 'admin') displayRole = 'Y\u00f6netici'
+        else if (displayRole === 'mh') displayRole = 'Müşteri Hizmetleri'
+        else if (displayRole === 'admin') displayRole = 'Yönetici'
         sUserRole.value = displayRole || ''
         initialRole = s.role || ''
 
+        sShortcutModelCopy.value = s.shortcuts?.copyModelColor || 'CommandOrControl+Shift+C'
         sShortcutClear.value = s.shortcuts?.clearCache || 'CommandOrControl+Shift+X'
-        sShortcutCopy.value = s.shortcuts?.toggleMonitoring || 'CommandOrControl+Shift+C'
+        sShortcutMonitoring.value = s.shortcuts?.toggleMonitoring || 'CommandOrControl+Shift+M'
 
         sPopupSize.value = String(s.popupSizeLevel || 2)
         sPopupTimeout.value = String(s.popupTimeout || 5000)
@@ -47,8 +48,9 @@ export function initSettingsLogic(
             personnelName: sPersonnelName.value.trim(),
             role: initialRole,
             shortcuts: {
+                copyModelColor: sShortcutModelCopy.value,
                 clearCache: sShortcutClear.value,
-                toggleMonitoring: sShortcutCopy.value
+                toggleMonitoring: sShortcutMonitoring.value
             },
             popupSizeLevel: parseInt(sPopupSize.value),
             popupTimeout: parseInt(sPopupTimeout.value),
@@ -90,6 +92,7 @@ export function initSettingsLogic(
     sClipboardUpper.addEventListener('change', () => triggerAutoSave(0))
 
     function setupShortcutRecorder(input: HTMLInputElement) {
+        if (!input) return
         input.onkeydown = (e) => {
             e.preventDefault()
             const keys: string[] = []
@@ -105,8 +108,9 @@ export function initSettingsLogic(
         }
     }
 
+    setupShortcutRecorder(sShortcutModelCopy)
     setupShortcutRecorder(sShortcutClear)
-    setupShortcutRecorder(sShortcutCopy)
+    setupShortcutRecorder(sShortcutMonitoring)
 
     if (sLogoutBtn) {
         sLogoutBtn.onclick = async () => {
