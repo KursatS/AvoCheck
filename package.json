@@ -1,6 +1,6 @@
 {
   "name": "avocheck",
-  "version": "2.6.4",
+  "version": "2.6.5",
   "description": "AvoCheck - Garanti Takip & Metin Asistanı",
   "author": "Kürşat Sinan",
   "main": "out/main/index.js",

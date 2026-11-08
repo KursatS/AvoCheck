@@ -3,15 +3,23 @@
 !macroend
 
 !macro customInit
-  ; Old and new processes termination to prevent locked files during auto-update
+  ; Terminate all running processes so files are unlocked
   nsExec::Exec 'taskkill /F /IM "RecciTek WCheck.exe" /T'
   Pop $0
   nsExec::Exec 'taskkill /F /IM "AvoCheck.exe" /T'
   Pop $0
   nsExec::Exec 'taskkill /F /IM "TextExpander.exe" /T'
   Pop $0
+  Sleep 1000
 
-  ; Enforce clean modern install directory, avoiding nested 'RecciTek WCheck\AvoCheck'
+  ; Purge legacy RecciTek directory immediately so old exe cannot survive
+  Delete "$LOCALAPPDATA\Programs\RecciTek WCheck\RecciTek WCheck.exe"
+  Delete "$LOCALAPPDATA\Programs\RecciTek WCheck\Uninstall RecciTek WCheck.exe"
+  RMDir /r "$LOCALAPPDATA\Programs\RecciTek WCheck"
+
+  ; Update registry keys to point to clean AvoCheck path
+  WriteRegStr HKCU "Software\${APP_GUID}" InstallLocation "$LOCALAPPDATA\Programs\AvoCheck"
+  WriteRegStr HKCU "Software\${APP_GUID}" ShortcutName "AvoCheck"
   StrCpy $INSTDIR "$LOCALAPPDATA\Programs\AvoCheck"
 !macroend
 
@@ -27,9 +35,11 @@
   Delete "$DESKTOP\RecciTek WCheck.lnk"
   Delete "$SMPROGRAMS\RecciTek WCheck.lnk"
   Delete "$SMPROGRAMS\RecciTek WCheck\RecciTek WCheck.lnk"
+  RMDir /r "$SMPROGRAMS\RecciTek WCheck"
 
-  ; Cleanup obsolete legacy RecciTek directory if leftover from uninstaller
-  RMDir /r "$LOCALAPPDATA\Programs\RecciTek WCheck"
+  ; Explicitly create modern Desktop & Start Menu shortcuts for AvoCheck
+  CreateShortCut "$DESKTOP\AvoCheck.lnk" "$INSTDIR\AvoCheck.exe" "" "$INSTDIR\AvoCheck.exe" 0 "" "" "AvoCheck"
+  CreateShortCut "$SMPROGRAMS\AvoCheck.lnk" "$INSTDIR\AvoCheck.exe" "" "$INSTDIR\AvoCheck.exe" 0 "" "" "AvoCheck"
 
   ; When auto-updating, launch the new app immediately and quit installer so user never hangs
   ${if} ${isUpdated}
