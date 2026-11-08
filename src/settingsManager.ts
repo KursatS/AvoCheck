@@ -70,13 +70,13 @@ export function loadSettings(): AppSettings {
     const p = getSettingsPath();
     if (fs.existsSync(p)) {
       const savedSettings = JSON.parse(fs.readFileSync(p, 'utf8'));
-      return { ...defaultSettings, ...savedSettings, isLoggedIn: false };
+      return { ...defaultSettings, ...savedSettings, isLoggedIn: true };
     }
   } catch (error) {
     console.error('Error loading settings:', error);
   }
 
-  return { ...defaultSettings, isLoggedIn: false };
+  return { ...defaultSettings, isLoggedIn: true };
 }
 
 export function saveSettings(settings: AppSettings): void {

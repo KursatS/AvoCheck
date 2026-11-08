@@ -1,7 +1,7 @@
 {
   "name": "reccitek-wcheck",
-  "version": "2.6.1",
-  "description": "RecciTek WCheck - Garanti Takip Sistemi",
+  "version": "2.6.2",
+  "description": "RecciTek WCheck - Garanti Takip Sistemi (Lite)",
   "author": "Kürşat Sinan",
   "main": "out/main/index.js",
   "scripts": {
@@ -64,7 +64,6 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "runAfterFinish": true,
       "createDesktopShortcut": true,
       "installerIcon": "assets/logo256.ico",
       "uninstallerIcon": "assets/logo256.ico",

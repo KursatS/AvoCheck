@@ -1,14 +1,8 @@
 export { }
 import { showToast } from './utils/toastUtils'
 import { SVG_EMPTY_FOLDER } from './utils/svgUtils'
-import { initPriorityLogic } from './utils/priorityLogic'
-import { initSettingsLogic } from './utils/settingsLogic'
-import { initAdminLogic } from './utils/adminLogic'
-import { initZReportLogic } from './utils/zreportLogic'
-import { initDeviceCallLogic } from './utils/deviceCallLogic'
-import { escapeHtml } from './utils/html'
+import * as XLSX from 'xlsx'
 
-//
 const cardsDiv = document.getElementById('cards')!
 const searchInput = document.getElementById('search') as HTMLInputElement
 const toggleBtn = document.getElementById('toggle')!
@@ -18,22 +12,16 @@ const clipboardUpperToggleBtn = document.getElementById('clipboard-upper-toggle'
 const statusDot = document.getElementById('status-dot')!
 const statusInfo = document.getElementById('status-info')!
 const statusRefreshBtn = document.getElementById('status-refresh-btn')!
+const devicesCount = document.getElementById('devices-count')!
+const btnExportExcel = document.getElementById('btn-export-excel')
 
-// Sidebar Elements
-const sideName = document.getElementById('side-name')!
-const navItems = document.querySelectorAll('.nav-item')
-const viewSections = document.querySelectorAll('.view-section')
+// Navigation Tabs
+const tabHistory = document.getElementById('tab-history')!
+const tabSettings = document.getElementById('tab-settings')!
+const viewHistory = document.getElementById('view-history')!
+const viewSettings = document.getElementById('view-settings')!
 
-// Priority View Elements
-const prioList = document.getElementById('priority-list')!
-const pSerial = document.getElementById('p-serial') as HTMLInputElement
-const pCustomer = document.getElementById('p-customer') as HTMLInputElement
-const pDesc = document.getElementById('p-desc') as HTMLInputElement
-const addPrioBtn = document.getElementById('add-priority-btn')!
-
-// Settings View Elements
-const sPersonnelName = document.getElementById('personnel-name') as HTMLInputElement
-const sUserRole = document.getElementById('user-role') as HTMLInputElement
+// Settings Controls
 const sShortcutModelCopy = document.getElementById('shortcut-model-copy') as HTMLInputElement
 const sShortcutClear = document.getElementById('shortcut-clear') as HTMLInputElement
 const sShortcutMonitoring = document.getElementById('shortcut-monitoring') as HTMLInputElement
@@ -42,43 +30,10 @@ const sPopupTimeout = document.getElementById('popup-timeout') as HTMLInputEleme
 const sAutoStart = document.getElementById('auto-start') as HTMLInputElement
 const sPreventDuplicate = document.getElementById('prevent-duplicate') as HTMLInputElement
 const sClipboardUpper = document.getElementById('clipboard-upper') as HTMLInputElement
-const sLogoutBtn = document.getElementById('logout-btn') as HTMLButtonElement
+const btnCheckUpdate = document.getElementById('btn-check-update')
+const updateCheckStatus = document.getElementById('update-check-status')
 
-// Z Report View Elements
-const zreportDropZone = document.getElementById('zreport-drop-zone')!
-const zreportFileInput = document.getElementById('zreport-file-input') as HTMLInputElement
-const zreportResults = document.getElementById('zreport-results')!
-const zreportAnalytics = document.getElementById('zreport-analytics')!
-
-// Admin View Elements
-const adminUserList = document.getElementById('admin-user-list')!
-const btnAddUser = document.getElementById('btn-add-user')!
-const adminModal = document.getElementById('admin-user-modal')!
-const adminModalTitle = document.getElementById('admin-modal-title')!
-const adminUserId = document.getElementById('admin-user-id') as HTMLInputElement
-const adminUsername = document.getElementById('admin-user-username') as HTMLInputElement
-const adminPassword = document.getElementById('admin-user-password') as HTMLInputElement
-const adminFullname = document.getElementById('admin-user-fullname') as HTMLInputElement
-const adminRole = document.getElementById('admin-user-role') as HTMLSelectElement
-const btnCancelAdminModal = document.getElementById('btn-cancel-admin-modal')!
-const btnSaveAdminUser = document.getElementById('btn-save-admin-user')!
-
-// Device Call Elements
-const sideDeviceCallBtn = document.getElementById('side-device-call-btn')!
-const deviceCallModal = document.getElementById('device-call-modal')!
-const dcallSerial = document.getElementById('dcall-serial') as HTMLInputElement
-const dcallModel = document.getElementById('dcall-model') as HTMLInputElement
-const dcallCustomer = document.getElementById('dcall-customer') as HTMLInputElement
-const btnCancelDeviceCall = document.getElementById('btn-cancel-device-call')!
-const btnSendDeviceCall = document.getElementById('btn-send-device-call')!
-const deviceCallToastContainer = document.getElementById('device-call-toast-container')!
-const dcallHistoryList = document.getElementById('device-call-history-list')
-const dcallSearchInput = document.getElementById('device-call-search') as HTMLInputElement
-const dcallStatusFilter = document.getElementById('device-call-status-filter') as HTMLSelectElement
-const btnOpenDeviceCallModal = document.getElementById('btn-open-device-call-modal')
-
-
-// Modal elements
+// Modal Elements
 const modalOverlay = document.getElementById('modal-overlay')!
 const modalTitle = document.getElementById('modal-title')!
 const modalText = document.getElementById('modal-text')!
@@ -88,641 +43,512 @@ const modalCancel = document.getElementById('modal-cancel')!
 const api = (window as any).electronAPI
 
 let monitoringEnabled = true
-let currentRole = 'kargo_kabul'
-let personnelName = ''
+let clipboardUpperEnabled = true
+let activeFilter = 'all'
+let cachedDevices: any[] = []
 
-//
+// Confirmation Dialog Helper
 export function showConfirm(title: string, message: string, confirmText = 'Evet, Sil'): Promise<boolean> {
-    return new Promise((resolve) => {
-        modalTitle.textContent = title
-        modalText.textContent = message
-        modalConfirm.textContent = confirmText
+  return new Promise((resolve) => {
+    modalTitle.textContent = title
+    modalText.textContent = message
+    modalConfirm.textContent = confirmText
 
-        modalOverlay.classList.add('active')
+    modalOverlay.classList.add('active')
 
-        const close = (result: boolean) => {
-            modalOverlay.classList.remove('active')
-            resolve(result)
-        }
+    const close = (result: boolean) => {
+      modalOverlay.classList.remove('active')
+      resolve(result)
+    }
 
-        modalConfirm.onclick = () => close(true)
-        modalCancel.onclick = () => close(false)
-        modalOverlay.onclick = (e) => {
-            if (e.target === modalOverlay) close(false)
-        }
-    })
+    modalConfirm.onclick = () => close(true)
+    modalCancel.onclick = () => close(false)
+    modalOverlay.onclick = (e) => {
+      if (e.target === modalOverlay) close(false)
+    }
+  })
 }
 ;(window as any).showConfirm = showConfirm
 
-//
 function formatDate(dateString: string): string {
-    const date = new Date(dateString)
-    return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return dateString
+  return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
 }
 
-//
-function loadCards() {
-    cardsDiv.innerHTML = `
-        <div class="card" style="display:flex; flex-direction:column; gap:12px; pointer-events:none; opacity:0.7;">
-            <div class="skeleton" style="width: 30%; height: 24px;"></div>
-            <div class="skeleton" style="width: 100%; height: 60px;"></div>
-            <div class="skeleton" style="width: 60%; height: 20px;"></div>
-        </div>
-        <div class="card" style="display:flex; flex-direction:column; gap:12px; pointer-events:none; opacity:0.5;">
-            <div class="skeleton" style="width: 40%; height: 24px;"></div>
-            <div class="skeleton" style="width: 100%; height: 60px;"></div>
-            <div class="skeleton" style="width: 80%; height: 20px;"></div>
-        </div>
-    `
+// Format model string for copy and display
+function formatModelData(item: any): { cleanModel: string; cleanColor: string; fullStr: string } {
+  let cleanModel = (item.model_name || '').toUpperCase().trim()
+    .replace(/^ROBOROCK\s+/i, '').replace(/^ROBOROCK$/i, '').replace(/QREVO/g, 'Q REVO').trim()
+  let cleanColor = (item.model_color || '').toUpperCase().trim()
+    .replace(/QREVO/g, 'Q REVO').trim()
 
-    api.getCachedData().then((data: any[]) => {
-        cardsDiv.innerHTML = ''
+  if (cleanColor && cleanModel.endsWith(cleanColor)) {
+    cleanModel = cleanModel.substring(0, cleanModel.length - cleanColor.length).trim()
+  }
 
-        if (!data || data.length === 0) {
-            cardsDiv.innerHTML = `
-        <div class="empty-state">
-          ${SVG_EMPTY_FOLDER}
-          <h3>Henüz bir cihaz sorgulanmadı</h3>
-          <p>Panoya bir seri numarası kopyaladığınızda burada görünecektir.</p>
-        </div>
-      `
-            return
-        }
-
-        const query = searchInput.value.toLowerCase()
-        data.sort((a: any, b: any) => new Date(b.copy_date).getTime() - new Date(a.copy_date).getTime())
-
-        // FIX: BATCH DOM APPENDS
-        const fragment = document.createDocumentFragment();
-
-        data.forEach((item: any) => {
-            if (item.serial.toLowerCase().includes(query)) {
-                const card = document.createElement('div')
-                let cardClass = 'card'
-                const statusLabel = item.warranty_status
-
-                if (statusLabel.includes('RECCI')) cardClass += ' recci'
-                else if (statusLabel.includes('KVK')) cardClass += ' kvk'
-                else cardClass += ' out-of-warranty'
-
-                const isExpiredRecci = statusLabel.includes('SÜRESİ DOLMUŞ') || statusLabel.includes('FATURA KONTROL')
-                const statusTagContent = isExpiredRecci
-                    ? `<span style="color:#10b981;">RECCI GARANTİLİ</span> <span style="color:#f59e0b;font-weight:700;">(SÜRESİ DOLMUŞ - FATURA KONTROL)</span>`
-                    : statusLabel
-
-                let cleanModel = (item.model_name || 'Bilinmiyor').toUpperCase().trim()
-                    .replace(/^ROBOROCK\s+/i, '').replace(/^ROBOROCK$/i, '').replace(/QREVO/g, 'Q REVO').trim()
-                let cleanColor = (item.model_color || '').toUpperCase().trim()
-                    .replace(/QREVO/g, 'Q REVO').trim()
-
-                if (cleanColor && cleanModel.endsWith(cleanColor)) {
-                    cleanModel = cleanModel.substring(0, cleanModel.length - cleanColor.length).trim()
-                }
-
-                const modelDisplayStr = cleanColor ? `${cleanModel} ${cleanColor}` : cleanModel
-
-                card.className = cardClass
-                card.style.position = 'relative'
-                card.innerHTML = `
-          <button class="delete-btn" onclick="deleteEntry('${item.serial}')">&#10005;</button>
-          <div class="status-tag">${statusTagContent}</div>
-          <p><strong>Seri:</strong> ${item.serial}</p>
-          <p><strong>Model:</strong> ${modelDisplayStr}</p>
-          <p><strong>Tarih:</strong> ${formatDate(item.copy_date)}</p>
-          ${item.warranty_end ? `<p><strong>FT Biti\u015f:</strong> ${item.warranty_end}</p>` : ''}
-        `
-                fragment.appendChild(card)
-            }
-        })
-
-        cardsDiv.appendChild(fragment)
-    })
+  const fullStr = cleanColor ? `${cleanModel} - ${cleanColor}` : cleanModel
+  return { cleanModel, cleanColor, fullStr }
 }
 
-//
-toggleBtn.onclick = () => {
-    monitoringEnabled = !monitoringEnabled
-    const span = toggleBtn.querySelector('span')
-    if (span) {
-        span.textContent = monitoringEnabled ? '\u{1F4CB} Clipboard \u0130zleme: Aktif' : '\u{1F4CB} Clipboard \u0130zleme: Devre D\u0131\u015f\u0131'
+function renderCards() {
+  const query = searchInput.value.toLowerCase().trim()
+  const filtered = cachedDevices.filter((item: any) => {
+    const status = (item.warranty_status || '').toUpperCase()
+    const { fullStr } = formatModelData(item)
+
+    // Filter chip matching
+    if (activeFilter === 'recci') {
+      if (!status.includes('RECCI') || status.includes('DOLMUŞ')) return false
+    } else if (activeFilter === 'expired') {
+      if (!status.includes('DOLMUŞ') && !status.includes('FATURA KONTROL')) return false
+    } else if (activeFilter === 'kvk') {
+      if (!status.includes('KVK')) return false
+    } else if (activeFilter === 'out') {
+      if (status.includes('RECCI') || status.includes('KVK')) return false
     }
-    toggleBtn.style.opacity = monitoringEnabled ? '1' : '0.6'
-    api.toggleMonitoring(monitoringEnabled)
+
+    // Text search query matching
+    if (!query) return true
+    const serialMatch = (item.serial || '').toLowerCase().includes(query)
+    const modelMatch = fullStr.toLowerCase().includes(query)
+    const dateMatch = (item.warranty_end || '').toLowerCase().includes(query)
+    return serialMatch || modelMatch || dateMatch
+  })
+
+  // Update counts
+  if (devicesCount) {
+    devicesCount.textContent = `${filtered.length} / ${cachedDevices.length} Cihaz`
+  }
+
+  if (filtered.length === 0) {
+    cardsDiv.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: rgba(255,255,255,0.02); border: 2px dashed rgba(255,255,255,0.08); border-radius: 20px;">
+        ${SVG_EMPTY_FOLDER}
+        <h3 style="font-size: 1.15rem; color: var(--text-primary); margin: 12px 0 6px;">Eşleşen cihaz bulunamadı</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Farklı bir arama yapmayı veya filtreyi temizlemeyi deneyin.</p>
+      </div>
+    `
+    return
+  }
+
+  const fragment = document.createDocumentFragment()
+
+  filtered.forEach((item: any) => {
+    const card = document.createElement('div')
+    const status = (item.warranty_status || '').toUpperCase()
+    const isRecci = status.includes('RECCI')
+    const isExpiredRecci = status.includes('SÜRESİ DOLMUŞ') || status.includes('FATURA KONTROL')
+    const isKvk = status.includes('KVK')
+
+    let cardClass = 'device-card'
+    let badgeClass = 'status-badge none'
+    let badgeText = '✕ GARANTİ DIŞI'
+
+    if (isExpiredRecci) {
+      cardClass += ' recci'
+      badgeClass = 'status-badge recci-expired'
+      badgeText = '⚠️ SİSTEM SÜRESİ DOLMUŞ (FATURA KONTROL)'
+    } else if (isRecci) {
+      cardClass += ' recci'
+      badgeClass = 'status-badge recci'
+      badgeText = '✓ RECCI GARANTİLİ'
+    } else if (isKvk) {
+      cardClass += ' kvk'
+      badgeClass = 'status-badge kvk'
+      badgeText = '✓ KVK GARANTİLİ'
+    } else {
+      cardClass += ' out-of-warranty'
+    }
+
+    const { fullStr } = formatModelData(item)
+    const copyTextPayload = isKvk && item.warranty_end
+      ? `GÜVENCE BİTİŞ TARİHİ : ${item.warranty_end}`
+      : fullStr
+
+    card.className = cardClass
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="serial-tag" title="Kopyalamak için tıklayın" data-serial="${item.serial}">
+          <span>📋</span> ${item.serial}
+        </span>
+        <button class="card-delete-btn" title="Kayıttan Sil" data-delete="${item.serial}">✕</button>
+      </div>
+
+      <div class="${badgeClass}">${badgeText}</div>
+
+      <div class="model-info">${fullStr || 'Model Belirtilmemiş'}</div>
+
+      <div class="card-meta">
+        <div class="meta-row">
+          <span>Sorgu Tarihi:</span>
+          <span style="color:var(--text-primary);">${formatDate(item.copy_date)}</span>
+        </div>
+        ${item.warranty_end ? `
+        <div class="meta-row">
+          <span>Garanti Bitiş:</span>
+          <span style="color:#38bdf8; font-weight:600;">${item.warranty_end}</span>
+        </div>` : ''}
+      </div>
+
+      <div class="card-footer">
+        <button class="btn-copy-model" data-copy-text="${copyTextPayload}">
+          <span>📋</span> <span>Model Kopyala</span>
+        </button>
+      </div>
+    `
+    fragment.appendChild(card)
+  })
+
+  cardsDiv.innerHTML = ''
+  cardsDiv.appendChild(fragment)
+
+  // Attach card event listeners
+  cardsDiv.querySelectorAll('[data-serial]').forEach((el: any) => {
+    el.onclick = () => {
+      const serial = el.dataset.serial
+      navigator.clipboard.writeText(serial)
+      showToast(`${serial} panoya kopyalandı!`, 'info')
+    }
+  })
+
+  cardsDiv.querySelectorAll('[data-copy-text]').forEach((btn: any) => {
+    btn.onclick = () => {
+      const text = btn.dataset.copyText
+      navigator.clipboard.writeText(text)
+      const span = btn.querySelector('span:last-child')
+      if (span) {
+        const orig = span.textContent
+        span.textContent = 'Kopyalandı!'
+        setTimeout(() => { span.textContent = orig }, 1500)
+      }
+      showToast(`${text} panoya kopyalandı!`, 'success')
+    }
+  })
+
+  cardsDiv.querySelectorAll('[data-delete]').forEach((btn: any) => {
+    btn.onclick = async () => {
+      const serial = btn.dataset.delete
+      const confirmed = await showConfirm(
+        'Kaydı Sil',
+        `${serial} seri numaralı cihaz geçmişten silinecektir. Emin misiniz?`,
+        'Sil'
+      )
+      if (confirmed) {
+        await api.deleteEntry(serial)
+        loadCards()
+        showToast('Kayıt silindi.', 'info')
+      }
+    }
+  })
 }
 
-//
+function loadCards() {
+  cardsDiv.innerHTML = `
+    <div class="device-card" style="opacity:0.5; pointer-events:none;">
+      <div class="skeleton" style="width: 45%; height: 22px;"></div>
+      <div class="skeleton" style="width: 30%; height: 24px;"></div>
+      <div class="skeleton" style="width: 80%; height: 28px;"></div>
+    </div>
+    <div class="device-card" style="opacity:0.3; pointer-events:none;">
+      <div class="skeleton" style="width: 40%; height: 22px;"></div>
+      <div class="skeleton" style="width: 30%; height: 24px;"></div>
+      <div class="skeleton" style="width: 70%; height: 28px;"></div>
+    </div>
+  `
+
+  api.getCachedData().then((data: any[]) => {
+    cachedDevices = Array.isArray(data) ? data : []
+    cachedDevices.sort((a, b) => new Date(b.copy_date).getTime() - new Date(a.copy_date).getTime())
+    renderCards()
+  }).catch(() => {
+    cardsDiv.innerHTML = '<div style="color:#ef4444; padding:20px;">Geçmiş verileri yüklenirken hata oluştu.</div>'
+  })
+}
+
+// ── Search & Filter Listeners ──
+searchInput.addEventListener('input', () => {
+  renderCards()
+})
+
+document.querySelectorAll('.filter-chip').forEach((chip: any) => {
+  chip.onclick = () => {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'))
+    chip.classList.add('active')
+    activeFilter = chip.dataset.filter || 'all'
+    renderCards()
+  }
+})
+
+// ── Tab Navigation ──
+function switchTab(view: 'history' | 'settings') {
+  if (view === 'history') {
+    tabHistory.classList.add('active')
+    tabSettings.classList.remove('active')
+    viewHistory.classList.add('active')
+    viewSettings.classList.remove('active')
+  } else {
+    tabSettings.classList.add('active')
+    tabHistory.classList.remove('active')
+    viewSettings.classList.add('active')
+    viewHistory.classList.remove('active')
+  }
+}
+
+tabHistory.onclick = () => switchTab('history')
+tabSettings.onclick = () => switchTab('settings')
+
+api.onSwitchView((view: string) => {
+  if (view === 'settings') switchTab('settings')
+  else switchTab('history')
+})
+
+// ── Toolbar Actions ──
+toggleBtn.onclick = () => {
+  monitoringEnabled = !monitoringEnabled
+  updateMonitoringUI(monitoringEnabled)
+  api.toggleMonitoring(monitoringEnabled)
+}
+
+function updateMonitoringUI(enabled: boolean) {
+  const span = toggleBtn.querySelector('span')
+  if (span) {
+    span.textContent = enabled ? '👁️ Pano İzleme: Aktif' : '👁️ Pano İzleme: Kapalı'
+  }
+  if (enabled) {
+    toggleBtn.classList.add('btn-toggle-active')
+  } else {
+    toggleBtn.classList.remove('btn-toggle-active')
+  }
+}
+
+api.onMonitoringToggled((enabled: boolean) => {
+  monitoringEnabled = enabled
+  updateMonitoringUI(enabled)
+})
+
+clipboardUpperToggleBtn.onclick = () => {
+  clipboardUpperEnabled = !clipboardUpperEnabled
+  updateUpperToggleUI(clipboardUpperEnabled)
+  api.getSettings().then((s: any) => {
+    api.saveSettings({ ...s, clipboardUpperEnabled })
+  })
+}
+
+function updateUpperToggleUI(enabled: boolean) {
+  const span = clipboardUpperToggleBtn.querySelector('span')
+  if (span) {
+    span.textContent = enabled ? '🔠 Büyük Harf Yapıştır: Aktif' : '🔠 Büyük Harf: Kapalı'
+  }
+  if (enabled) {
+    clipboardUpperToggleBtn.classList.add('btn-toggle-active')
+  } else {
+    clipboardUpperToggleBtn.classList.remove('btn-toggle-active')
+  }
+  if (sClipboardUpper) {
+    sClipboardUpper.checked = enabled
+  }
+}
+
+clearCacheBtn.onclick = async () => {
+  const confirmed = await showConfirm(
+    'Tüm Geçmişi Temizle',
+    'Tüm sorgulanan cihaz geçmişi veritabanından kalıcı olarak silinecektir. Devam etmek istiyor musunuz?',
+    'Evet, Temizle'
+  )
+  if (confirmed) {
+    await api.clearCache()
+    cachedDevices = []
+    renderCards()
+    showToast('Tüm cihaz geçmişi temizlendi.', 'info')
+  }
+}
+
+api.onCacheCleared(() => {
+  cachedDevices = []
+  renderCards()
+})
+
+api.onRefreshCards(() => {
+  loadCards()
+})
+
+// ── Excel Export ──
+if (btnExportExcel) {
+  btnExportExcel.onclick = () => {
+    if (!cachedDevices || cachedDevices.length === 0) {
+      showToast('Dışa aktarılacak cihaz kaydı bulunmuyor.', 'warning')
+      return
+    }
+
+    try {
+      const exportRows = cachedDevices.map(item => {
+        const { fullStr } = formatModelData(item)
+        return {
+          'Seri Numarası': item.serial,
+          'Model ve Renk': fullStr,
+          'Garanti Durumu': item.warranty_status || '',
+          'Sorgu Zamanı': formatDate(item.copy_date),
+          'Garanti Bitiş': item.warranty_end || '-'
+        }
+      })
+
+      const ws = XLSX.utils.json_to_sheet(exportRows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Cihaz Geçmişi')
+      const fileName = `RecciTek_Garanti_Gecmisi_${new Date().toISOString().slice(0, 10)}.xlsx`
+      XLSX.writeFile(wb, fileName)
+      showToast('Excel dosyası başarıyla indirildi.', 'success')
+    } catch (e: any) {
+      console.error('Excel export error:', e)
+      showToast('Excel aktarımı sırasında hata oluştu.', 'error')
+    }
+  }
+}
+
+// ── Server Status ──
+statusRefreshBtn.onclick = () => {
+  statusInfo.textContent = 'Kontrol ediliyor...'
+  api.manualServerStatusRefresh()
+}
+
+api.onServerStatusUpdate((res: any) => {
+  if (res && res.online) {
+    statusDot.className = 'status-dot online'
+    statusInfo.textContent = `Recci: ${res.latency}ms`
+  } else {
+    statusDot.className = 'status-dot offline'
+    statusInfo.textContent = 'Sunucu: Kesik'
+  }
+})
+
+// ── Theme Management ──
 const ALL_THEMES = ['dark', 'midnight', 'ocean', 'sunset'] as const
 const THEME_ICONS: Record<string, string> = {
-    dark: '\u{1F319}',
-    midnight: '\u{1F52E}',
-    ocean: '\u{1F30A}',
-    sunset: '\u{1F305}'
+  dark: '🌙',
+  midnight: '🔮',
+  ocean: '🌊',
+  sunset: '🌅'
 }
 let currentTheme = 'dark'
 
 function applyTheme(theme: string) {
-    currentTheme = theme
-    document.body.classList.remove(...ALL_THEMES)
-    document.body.classList.add(theme)
-    themeBtn.textContent = THEME_ICONS[theme] || '\u{1F319}'
-    document.querySelectorAll('.theme-card').forEach((c: any) => {
-        c.classList.toggle('selected', c.dataset.theme === theme)
-    })
+  currentTheme = theme
+  document.body.classList.remove(...ALL_THEMES)
+  document.body.classList.add(theme)
+  themeBtn.textContent = THEME_ICONS[theme] || '🌙'
 }
 
 themeBtn.onclick = () => {
-    const idx = ALL_THEMES.indexOf(currentTheme as any)
-    const next = ALL_THEMES[(idx + 1) % ALL_THEMES.length]
-    applyTheme(next)
-    api.getSettings().then((s: any) => {
-        api.saveSettings({ ...s, theme: next })
-    })
+  const idx = ALL_THEMES.indexOf(currentTheme as any)
+  const next = ALL_THEMES[(idx + 1) % ALL_THEMES.length]
+  applyTheme(next)
+  api.getSettings().then((s: any) => {
+    api.saveSettings({ ...s, theme: next })
+  })
 }
 
-const themePicker = document.getElementById('theme-picker')
-if (themePicker) {
-    themePicker.addEventListener('click', (e: Event) => {
-        const card = (e.target as HTMLElement).closest('.theme-card') as HTMLElement | null
-        if (!card || !card.dataset.theme) return
-        const theme = card.dataset.theme
-        applyTheme(theme)
-        api.getSettings().then((s: any) => {
-            api.saveSettings({ ...s, theme })
-        })
-    })
+// ── Settings Auto-Save & Recorder Logic ──
+async function loadSettingsToUI() {
+  const s = await api.getSettings()
+
+  sShortcutModelCopy.value = s.shortcuts?.copyModelColor || 'CommandOrControl+Shift+C'
+  sShortcutClear.value = s.shortcuts?.clearCache || 'CommandOrControl+Shift+X'
+  sShortcutMonitoring.value = s.shortcuts?.toggleMonitoring || 'CommandOrControl+Shift+M'
+
+  sPopupSize.value = String(s.popupSizeLevel || 2)
+  sPopupTimeout.value = String(s.popupTimeout || 5000)
+  sAutoStart.checked = s.autoStartEnabled || false
+  sPreventDuplicate.checked = s.preventDuplicatePopup || false
+  sClipboardUpper.checked = s.clipboardUpperEnabled !== false
+
+  clipboardUpperEnabled = s.clipboardUpperEnabled !== false
+  updateUpperToggleUI(clipboardUpperEnabled)
+
+  if (s.theme) applyTheme(s.theme)
 }
 
-api.getSettings().then((s: any) => {
-    const theme = s.theme || 'dark'
-    applyTheme(theme)
-})
+async function saveCurrentSettings() {
+  const currentSettings = await api.getSettings()
+  const settingsToSave = {
+    ...currentSettings,
+    shortcuts: {
+      copyModelColor: sShortcutModelCopy.value,
+      clearCache: sShortcutClear.value,
+      toggleMonitoring: sShortcutMonitoring.value
+    },
+    popupSizeLevel: parseInt(sPopupSize.value),
+    popupTimeout: parseInt(sPopupTimeout.value),
+    autoStartEnabled: sAutoStart.checked,
+    preventDuplicatePopup: sPreventDuplicate.checked,
+    clipboardUpperEnabled: sClipboardUpper.checked
+  }
 
-
-//
-let mainSearchTimeout: NodeJS.Timeout
-searchInput.oninput = () => {
-    clearTimeout(mainSearchTimeout)
-    mainSearchTimeout = setTimeout(() => {
-        loadCards()
-    }, 300)
+  try {
+    await api.saveSettings(settingsToSave)
+    clipboardUpperEnabled = sClipboardUpper.checked
+    updateUpperToggleUI(clipboardUpperEnabled)
+    showToast('Ayarlar kaydedildi.', 'success')
+  } catch (e: any) {
+    showToast('Ayarlar kaydedilirken hata oluştu.', 'error')
+  }
 }
 
-//
-function switchView(viewName: string) {
-    viewSections.forEach(sec => sec.classList.remove('active'))
-    navItems.forEach(item => item.classList.remove('active'))
+let saveTimeout: NodeJS.Timeout | null = null
+function triggerAutoSave(debounceMs = 0) {
+  if (saveTimeout) clearTimeout(saveTimeout)
+  if (debounceMs > 0) {
+    saveTimeout = setTimeout(saveCurrentSettings, debounceMs)
+  } else {
+    saveCurrentSettings()
+  }
+}
 
-    const targetSec = document.getElementById(`view-${viewName}`)
-    const targetNavItem = document.querySelector(`[data-view="${viewName}"]`)
+sPopupSize.addEventListener('change', () => triggerAutoSave(0))
+sPopupTimeout.addEventListener('input', () => triggerAutoSave(500))
+sAutoStart.addEventListener('change', () => triggerAutoSave(0))
+sPreventDuplicate.addEventListener('change', () => triggerAutoSave(0))
+sClipboardUpper.addEventListener('change', () => triggerAutoSave(0))
 
-    if (targetSec && targetNavItem) {
-        targetSec.classList.add('active')
-        targetNavItem.classList.add('active')
+function setupShortcutRecorder(input: HTMLInputElement) {
+  if (!input) return
+  input.onkeydown = (e) => {
+    e.preventDefault()
+    const keys: string[] = []
+    if (e.ctrlKey || e.metaKey) keys.push('CommandOrControl')
+    if (e.shiftKey) keys.push('Shift')
+    if (e.altKey) keys.push('Alt')
+
+    if (!['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+      keys.push(e.key.toUpperCase())
+      input.value = keys.join('+')
+      triggerAutoSave(0)
     }
-
-    // Refresh data based on view
-    if (viewName === 'history') {
-        loadCards()
-        api.getSettings().then((s: any) => {
-            updateClipboardUpperUI(s.clipboardUpperEnabled !== false)
-        })
-    }
-    else if (viewName === 'priority') loadPriorityDevices()
-    else if (viewName === 'admin') loadAdminUsers()
-    else if (viewName === 'settings') loadSettingsToUI()
-    else if (viewName === 'device-calls') deviceCallController.renderHistory()
+  }
 }
 
-navItems.forEach(item => {
-    item.addEventListener('click', () => {
-        const view = (item as HTMLElement).dataset.view
-        if (view) switchView(view)
-    })
-})
+setupShortcutRecorder(sShortcutModelCopy)
+setupShortcutRecorder(sShortcutClear)
+setupShortcutRecorder(sShortcutMonitoring)
 
-//
-async function refreshSidebarProfile() {
-    const settings = await api.getSettings()
-    personnelName = settings.personnelName || 'İsimsiz'
-    if (sideName) sideName.textContent = personnelName.toUpperCase()
-}
-
-//
-clearCacheBtn.onclick = async () => {
-    const confirmed = await showConfirm(
-        'T\u00fcm Ge\u00e7mi\u015fi Temizle',
-        'T\u00fcm sorgu ge\u00e7mi\u015finiz kal\u0131c\u0131 olarak silinecektir. Emin misiniz?',
-        'T\u00fcm\u00fcn\u00fc Sil'
-    )
-    if (confirmed) {
-        try {
-            await api.clearCache()
-            loadCards()
-            showToast('T\u00fcm \u00f6nbellek ba\u015far\u0131yla temizlendi.', 'success')
-        } catch (e: any) {
-            showToast('Temizleme hatas\u0131: ' + e.message, 'error')
-        }
-    }
-}
-
-//
-    ; (window as any).deleteEntry = async (serial: string) => {
-        const confirmed = await showConfirm(
-            'Kayd\u0131 Sil',
-            `${serial} seri numaral\u0131 cihaz\u0131 listeden silmek istedi\u011finizden emin misiniz?`
-        )
-        if (confirmed) {
-            try {
-                await api.deleteEntry(serial)
-                loadCards()
-                showToast(`${serial} kayd\u0131 silindi.`, 'success')
-            } catch (e: any) {
-                showToast('Silinemedi: ' + e.message, 'error')
-            }
-        }
-    }
-
-function updateClipboardUpperUI(enabled: boolean) {
-    const span = clipboardUpperToggleBtn.querySelector('span')
-    if (span) {
-        span.textContent = enabled ? '🔠 Büyük Harf Yapıştır: Aktif' : '🔠 Büyük Harf Yapıştır: Kapalı'
-    }
-    clipboardUpperToggleBtn.classList.toggle('btn-warning', !enabled)
-    clipboardUpperToggleBtn.classList.toggle('btn-primary', enabled)
-}
-
-api.getSettings().then((s: any) => updateClipboardUpperUI(s.clipboardUpperEnabled !== false))
-
-clipboardUpperToggleBtn.onclick = async () => {
-    const s = await api.getSettings()
-    const current = s.clipboardUpperEnabled !== false
-    const next = !current
+// ── Check Updates ──
+if (btnCheckUpdate) {
+  btnCheckUpdate.onclick = async () => {
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Güncellemeler kontrol ediliyor...'
     try {
-        await api.saveSettings({ ...s, clipboardUpperEnabled: next })
-        updateClipboardUpperUI(next)
-        showToast(`Büyük harf yapıştırma özelliği ${next ? 'etkinle\u015ftirildi' : 'devre d\u0131\u015f\u0131 b\u0131rak\u0131ld\u0131'}.`, 'info')
-    } catch (e: any) {
-        showToast('Büyük harf yapıştırma ayarı değiştirilemedi: ' + e.message, 'error')
+      const res = await api.checkForUpdates()
+      if (res && res.status === 'dev') {
+        if (updateCheckStatus) updateCheckStatus.textContent = 'Geliştirici modundasınız. Canlı güncelleme pasif.'
+      } else {
+        if (updateCheckStatus) updateCheckStatus.textContent = 'En güncel sürümü kullanıyorsunuz.'
+      }
+    } catch {
+      if (updateCheckStatus) updateCheckStatus.textContent = 'Güncelleme kontrolü başarısız oldu.'
     }
+  }
 }
 
-//
-api.onServerStatusUpdate((status: { online: boolean; latency: number }) => {
-    statusDot.className = 'status-dot ' + (status.online ? (status.latency > 1000 ? 'slow' : 'online') : 'offline')
-    statusInfo.textContent = status.online ? `Sunucu: ${status.latency}ms` : 'Sunucu: Eri\u015filemiyor'
-    statusRefreshBtn.classList.remove('rotating')
-})
-
-statusRefreshBtn.addEventListener('click', () => {
-    statusRefreshBtn.classList.add('rotating')
-    api.manualServerStatusRefresh()
-})
-
-api.onCacheCleared(() => loadCards())
-
-api.onMonitoringToggled((enabled: boolean) => {
-    monitoringEnabled = enabled
-    const span = toggleBtn.querySelector('span')
-    if (span) {
-        span.textContent = monitoringEnabled ? '\u{1F4CB} Clipboard \u0130zleme: Aktif' : '\u{1F4CB} Clipboard \u0130zleme: Devre D\u0131\u015f\u0131'
-    }
-    toggleBtn.style.opacity = monitoringEnabled ? '1' : '0.6'
-})
-
-//
-
-//
-api.onPriorityDeviceMatch((device: any) => {
-    const alertDiv = document.createElement('div')
-    alertDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 9999;
-        background: #ef4444;
-        color: white;
-        padding: 16px 24px;
-        border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(239, 68, 68, 0.4);
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        min-width: 300px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        animation: slideDownIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-    `
-
-    alertDiv.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <strong style="font-size:1.1rem;">&#9888;&#65039; ÖNCELİKLİ CİHAZ!</strong>
-            <button id="close-priority-alert" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer; padding:0 4px;">&#10005;</button>
-        </div>
-        <div style="font-size:0.95rem; font-weight:600;">${escapeHtml(device.customer_name)}</div>
-        <div style="font-size:0.85rem; opacity:0.9; background:rgba(0,0,0,0.1); padding:8px; border-radius:8px;">${escapeHtml(device.description)}</div>
-        <div style="margin-top: 8px; display: flex; justify-content: flex-end;">
-            <button id="delete-priority-bound" style="background: rgba(239, 68, 68, 0.5); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s;">Sistemden Sil</button>
-        </div>
-    `
-
-    if (!document.getElementById('priority-animations')) {
-        const style = document.createElement('style')
-        style.id = 'priority-animations'
-        style.textContent = `
-            @keyframes slideDownIn {
-                from { opacity: 0; transform: translate(-50%, -40px); }
-                to { opacity: 1; transform: translate(-50%, 0); }
-            }
-            #delete-priority-bound:hover { background: #dc2626 !important; transform: scale(1.05); }
-        `
-        document.head.appendChild(style)
-    }
-
-    document.body.appendChild(alertDiv)
-
-    const closeBtn = alertDiv.querySelector('#close-priority-alert') as HTMLElement
-    closeBtn.onclick = () => alertDiv.remove()
-
-    const deleteBtn = alertDiv.querySelector('#delete-priority-bound') as HTMLElement
-    deleteBtn.onclick = async () => {
-        const confirmed = await showConfirm(
-            'Sistemden Kalıcı Olarak Sil',
-            `${device.customer_name} cihazı işleme alındı olarak işaretlenecek ve listeden kalkacaktır. Emin misiniz?`,
-            'Evet, Sil'
-        )
-        if (confirmed) {
-            await api.deletePriorityDevice(device.id)
-            if (alertDiv.parentNode) alertDiv.remove()
-            loadPriorityDevices()
-            showToast('Cihaz sistemden kalıcı olarak silindi.', 'success')
-        }
-    }
-})
-
-//
-const { loadPriorityDevices, focusPriorityDevice } = initPriorityLogic(api, {
-    prioList, addPrioBtn, pSerial, pCustomer, pDesc
-})
-
-const { loadSettingsToUI } = initSettingsLogic(api, {
-    sPersonnelName, sUserRole, sShortcutModelCopy, sShortcutClear, sShortcutMonitoring,
-    sPopupSize, sPopupTimeout, sAutoStart, sPreventDuplicate, sLogoutBtn,
-    sClipboardUpper
-}, refreshSidebarProfile)
-
-// Global window function for deletion
-;(window as any).deletePriority = async (id: string) => {
-    const confirmed = await showConfirm(
-        'Öncelikli Cihazı Sil',
-        'Bu cihazı öncelikli listeden silmek istediğinize emin misiniz?',
-        'Evet, Sil'
-    )
-    if (confirmed) {
-        await api.deletePriorityDevice(id)
-        loadPriorityDevices()
-        showToast('Cihaz ba\u015far\u0131yla silindi.', 'success')
-    }
-}
-
-//
-Promise.all([
-    api.getSettings(),
-    api.getUsers().catch(() => [])
-]).then(([s]: [any, any[]]) => {
-    currentRole = s.role || 'kargo_kabul'
-    personnelName = s.personnelName || ''
-    
-    const isAdmin = s.isAdmin === true || s.username === 'KursatS'
-
-    // Sidebar role-based items
-    const sideAdmin = document.getElementById('side-admin-btn')
-    const sideDeviceCallBtn = document.getElementById('side-device-call-btn')
-
-    if (sideDeviceCallBtn) sideDeviceCallBtn.style.display = currentRole === 'kargo_kabul' ? 'flex' : 'none'
-    if (sideAdmin) sideAdmin.style.display = isAdmin ? 'flex' : 'none'
-    
-    refreshSidebarProfile()
-    loadCards()
-})
-
-api.onRefreshCards(() => {
-    api.getSettings().then((s: any) => {
-        currentRole = s.role || 'kargo_kabul'
-        personnelName = s.personnelName || ''
-        
-        const isAdmin = s.isAdmin === true || s.username === 'KursatS'
-        const sideAdmin = document.getElementById('side-admin-btn')
-        const sideDeviceCallBtn = document.getElementById('side-device-call-btn')
-
-        if (sideDeviceCallBtn) sideDeviceCallBtn.style.display = s.role === 'kargo_kabul' ? 'flex' : 'none'
-        if (sideAdmin) sideAdmin.style.display = isAdmin ? 'flex' : 'none'
-
-        refreshSidebarProfile()
-        loadCards()
-    })
-})
-
-api.onFocusPriorityDevice((device: any) => {
-    switchView('priority')
-    loadPriorityDevices().then(() => {
-        focusPriorityDevice(device)
-    })
-})
-
-api.onPriorityDevicesUpdate(() => {
-    loadPriorityDevices()
-})
-
-initZReportLogic(api, {
-    zreportDropZone,
-    zreportFileInput,
-    zreportResults,
-    zreportAnalytics
-})
-
-const { loadAdminUsers } = initAdminLogic(api, {
-    adminUserList, btnAddUser, adminModal, adminModalTitle,
-    adminUserId, adminUsername, adminPassword, adminFullname,
-    adminRole, btnCancelAdminModal, btnSaveAdminUser
-}, undefined as any)
-
-//
-;(function setupAutoUpdater() {
-    const bar = document.createElement('div')
-    bar.id = 'update-bar'
-    bar.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-top:1px solid #38bdf8;padding:12px 24px;align-items:center;gap:14px;font-size:0.9rem;color:#f8fafc;box-shadow:0 -4px 24px rgba(0,0,0,0.5);'
-    bar.innerHTML = `
-        <span id="update-msg" style="font-weight:600;flex:1;">📢 Yeni sürüm mevcut!</span>
-        <div id="update-progress-wrap" style="display:none;flex:1;max-width:200px;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;">
-            <div id="update-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#0284c7);border-radius:4px;transition:width 0.3s;"></div>
-        </div>
-        <button id="update-action-btn" style="padding:8px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#ffffff;cursor:pointer;font-size:0.85rem;font-weight:700;box-shadow:0 0 12px rgba(56,189,248,0.4);transition:all 0.2s;">İndir</button>
-        <button id="update-dismiss-btn" style="padding:6px 10px;border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:1.2rem;line-height:1;">&#10005;</button>
-    `
-    document.body.appendChild(bar)
-
-    const updateMsg = document.getElementById('update-msg')!
-    const progressWrap = document.getElementById('update-progress-wrap')!
-    const progressBar = document.getElementById('update-progress-bar')!
-    const actionBtn = document.getElementById('update-action-btn') as HTMLButtonElement
-    const dismissBtn = document.getElementById('update-dismiss-btn')!
-
-    const btnCheckUpdate = document.getElementById('btn-check-update') as HTMLButtonElement | null
-    const updateCheckStatus = document.getElementById('update-check-status') as HTMLDivElement | null
-
-    let updateState: 'idle' | 'available' | 'downloading' | 'ready' = 'idle'
-
-    api.onUpdateAvailable((version: string) => {
-        updateState = 'available'
-        updateMsg.textContent = `📢 Yeni sürüm mevcut: v${version}`
-        bar.style.display = 'flex'
-        actionBtn.textContent = '⚡ İndir'
-        actionBtn.disabled = false
-        actionBtn.style.opacity = '1'
-        actionBtn.style.background = 'linear-gradient(135deg,#38bdf8,#0284c7)'
-        actionBtn.style.color = '#ffffff'
-        actionBtn.style.boxShadow = '0 0 12px rgba(56,189,248,0.4)'
-        actionBtn.style.cursor = 'pointer'
-
-        if (updateCheckStatus) {
-            updateCheckStatus.style.color = '#38bdf8'
-            updateCheckStatus.textContent = `📢 Yeni sürüm bulundu: v${version}`
-        }
-        if (btnCheckUpdate) {
-            btnCheckUpdate.textContent = '🔄 Tekrar Denetle'
-            btnCheckUpdate.disabled = false
-        }
-    })
-
-    api.onUpdateNotAvailable(() => {
-        if (updateCheckStatus) {
-            updateCheckStatus.style.color = '#4ade80'
-            updateCheckStatus.textContent = '✓ Harika! En güncel sürümü kullanıyorsunuz.'
-        }
-        if (btnCheckUpdate) {
-            btnCheckUpdate.textContent = '🔍 Güncellemeleri Kontrol Et'
-            btnCheckUpdate.disabled = false
-        }
-    })
-
-    api.onUpdateError((err: string) => {
-        if (updateCheckStatus) {
-            updateCheckStatus.style.color = '#f87171'
-            updateCheckStatus.textContent = `⚠️ Kontrol hatası: ${err}`
-        }
-        // If error fires during download, restore the download button
-        if (updateState === 'downloading') {
-            updateState = 'available'
-            actionBtn.textContent = '⚡ İndir'
-            actionBtn.disabled = false
-            actionBtn.style.opacity = '1'
-            actionBtn.style.background = 'linear-gradient(135deg,#38bdf8,#0284c7)'
-            actionBtn.style.boxShadow = '0 0 12px rgba(56,189,248,0.4)'
-            actionBtn.style.cursor = 'pointer'
-        }
-        if (btnCheckUpdate) {
-            btnCheckUpdate.textContent = '🔍 Güncellemeleri Kontrol Et'
-            btnCheckUpdate.disabled = false
-        }
-    })
-
-    api.onUpdateProgress((percent: number) => {
-        progressWrap.style.display = 'block'
-        progressBar.style.width = `${percent}%`
-        updateMsg.textContent = `⏬ İndiriliyor... %${percent}`
-    })
-
-    api.onUpdateDownloaded(() => {
-        updateState = 'ready'
-        progressWrap.style.display = 'none'
-        updateMsg.textContent = '✓ Güncelleme hazır! Uygulamayı yeniden başlatıp yükleyin.'
-        actionBtn.textContent = '🚀 Şimdi Güncelle'
-        actionBtn.disabled = false
-        actionBtn.style.opacity = '1'
-        actionBtn.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
-        actionBtn.style.color = '#ffffff'
-        actionBtn.style.fontWeight = '800'
-        actionBtn.style.boxShadow = '0 0 16px rgba(34, 197, 94, 0.6)'
-        actionBtn.style.cursor = 'pointer'
-    })
-
-    actionBtn.onclick = () => {
-        if (updateState === 'available' || updateState === 'idle') {
-            updateState = 'downloading'
-            actionBtn.textContent = '⏳ İndiriliyor...'
-            actionBtn.style.opacity = '0.7'
-            actionBtn.disabled = true
-            api.startUpdateDownload()
-        } else if (updateState === 'ready') {
-            actionBtn.textContent = 'Yükleniyor...'
-            actionBtn.disabled = true
-            api.installUpdate()
-        }
-    }
-
-    dismissBtn.onclick = () => {
-        bar.style.display = 'none'
-    }
-
-    if (btnCheckUpdate) {
-        btnCheckUpdate.onclick = async () => {
-            btnCheckUpdate.disabled = true
-            btnCheckUpdate.textContent = '⏳ Kontrol Ediliyor...'
-            if (updateCheckStatus) {
-                updateCheckStatus.style.color = '#94a3b8'
-                updateCheckStatus.textContent = 'GitHub sunucularına bağlanılıyor...'
-            }
-            try {
-                const res = await api.checkForUpdates()
-                if (res && res.updateInfo && res.updateInfo.version) {
-                    updateState = 'available'
-                    updateMsg.textContent = `📢 Yeni sürüm mevcut: v${res.updateInfo.version}`
-                    bar.style.display = 'flex'
-                    actionBtn.textContent = '⚡ İndir'
-                    actionBtn.disabled = false
-                    actionBtn.style.opacity = '1'
-                    actionBtn.style.background = 'linear-gradient(135deg,#38bdf8,#0284c7)'
-                    actionBtn.style.color = '#ffffff'
-                    actionBtn.style.boxShadow = '0 0 12px rgba(56,189,248,0.4)'
-                    actionBtn.style.cursor = 'pointer'
-
-                    if (updateCheckStatus) {
-                        updateCheckStatus.style.color = '#38bdf8'
-                        updateCheckStatus.textContent = `📢 Yeni sürüm bulundu: v${res.updateInfo.version}`
-                    }
-                    btnCheckUpdate.textContent = '🔄 Tekrar Denetle'
-                }
-            } catch (e: any) {
-                if (updateCheckStatus) {
-                    updateCheckStatus.style.color = '#f87171'
-                    updateCheckStatus.textContent = '⚠️ Güncelleme kontrolü başlatılamadı.'
-                }
-                btnCheckUpdate.textContent = '🔍 Güncellemeleri Kontrol Et'
-            } finally {
-                btnCheckUpdate.disabled = false
-                if (btnCheckUpdate.textContent === '⏳ Kontrol Ediliyor...') {
-                    btnCheckUpdate.textContent = '🔍 Güncellemeleri Kontrol Et'
-                }
-            }
-        }
-    }
-})()
-
-// ── Device Call System ────────────────────────────────────────────────
-const deviceCallController = initDeviceCallLogic(api, {
-    dcallHistoryList,
-    dcallSearchInput,
-    dcallStatusFilter,
-    btnOpenModal: btnOpenDeviceCallModal,
-    deviceCallModal,
-    dcallSerial,
-    dcallModel,
-    dcallCustomer,
-    btnCancelModal: btnCancelDeviceCall,
-    btnSendModal: btnSendDeviceCall
-})
-
-api.onDeviceCallsUpdate((calls: any[]) => {
-    deviceCallController.updateData(calls, personnelName)
-})
-
+// ── Init ──
+loadSettingsToUI()
+loadCards()
