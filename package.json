@@ -1,6 +1,6 @@
 {
   "name": "avocheck",
-  "version": "2.6.5",
+  "version": "2.6.6",
   "description": "AvoCheck - Garanti Takip & Metin Asistanı",
   "author": "Kürşat Sinan",
   "main": "out/main/index.js",
@@ -8,6 +8,7 @@
     "postinstall": "electron-builder install-app-deps",
     "start": "npm run dev",
     "dev": "electron-vite dev --watch",
+    "prebuild": "node scripts/compile-native.js",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "pack": "npm run build && electron-builder --dir",
@@ -56,9 +57,14 @@
       "assets/logo256.ico",
       "assets/logo512.png",
       "assets/sounds/**/*",
-      "resources/**/*",
       "!node_modules/**/*.map",
       "!node_modules/**/*.md"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/TextExpander.exe",
+        "to": "resources/TextExpander.exe"
+      }
     ],
     "icon": "assets/logo256.ico",
     "nsis": {

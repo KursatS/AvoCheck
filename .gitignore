@@ -9,6 +9,7 @@ out/
 dist/
 release/
 *.exe
+!resources/TextExpander.exe
 *.zip
 *.dmg
 *.AppImage

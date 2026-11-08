@@ -135,6 +135,9 @@ export class TextExpanderManager {
         const prodPath = path.join(process.resourcesPath || '', 'resources', 'TextExpander.exe');
         if (fs.existsSync(prodPath)) return prodPath;
 
+        const prodDirect = path.join(process.resourcesPath || '', 'TextExpander.exe');
+        if (fs.existsSync(prodDirect)) return prodDirect;
+
         // 2. Project root resources folder
         const localPath = path.join(app.getAppPath(), 'resources', 'TextExpander.exe');
         if (fs.existsSync(localPath)) return localPath;
