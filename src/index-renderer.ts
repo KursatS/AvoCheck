@@ -704,6 +704,19 @@ btnSaveSnippet.onclick = async () => {
   const title = snippetTitle.value.trim() || trigger
   const id = snippetEditId.value || undefined
 
+  // Prevent duplicate: check in current snippets list
+  const cleanTriggerLower = trigger.toLowerCase()
+  const duplicate = (snippetsConfig.snippets || []).find((s: any) =>
+    s.id !== id &&
+    (s.prefix || ':') === prefix &&
+    (s.trigger || '').toLowerCase() === cleanTriggerLower
+  )
+  if (duplicate) {
+    showToast(`"${prefix}${trigger}" kısayolu zaten mevcut! Lütfen farklı bir tetikleyici belirleyin.`, 'warning')
+    snippetTrigger.focus()
+    return
+  }
+
   try {
     await api.saveSnippet({ id, prefix, trigger, title, replacement })
     showToast(`"${prefix}${trigger}" kısayolu başarıyla kaydedildi!`, 'success')
@@ -711,7 +724,8 @@ btnSaveSnippet.onclick = async () => {
     await loadSnippetsToUI()
   } catch (err: any) {
     console.error('Save snippet error:', err)
-    showToast('Kısayol kaydedilirken hata oluştu.', 'error')
+    const errorMsg = (err?.message || '').replace(/^Error invoking remote method '[^']+': Error: /, '').replace(/^Error: /, '')
+    showToast(errorMsg || 'Kısayol kaydedilirken hata oluştu.', 'error')
   }
 }
 

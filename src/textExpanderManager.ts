@@ -100,6 +100,17 @@ export class TextExpanderManager {
                 const data = fs.readFileSync(this.configPath, 'utf8');
                 const parsed = JSON.parse(data);
                 if (parsed && Array.isArray(parsed.snippets)) {
+                    // Deduplicate existing snippets by prefix + trigger (keep first)
+                    const seen = new Set<string>();
+                    const uniqueSnippets: Snippet[] = [];
+                    for (const s of parsed.snippets) {
+                        const key = `${s.prefix || ':'}${(s.trigger || '').toLowerCase()}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            uniqueSnippets.push(s);
+                        }
+                    }
+                    parsed.snippets = uniqueSnippets;
                     return parsed;
                 }
             }
@@ -253,6 +264,17 @@ export class TextExpanderManager {
         const cleanPrefix = (snippetData.prefix || this.config.defaultPrefix || ':').trim();
         const cleanTitle = (snippetData.title || cleanTrigger).trim();
         const cleanReplacement = snippetData.replacement || '';
+
+        // Prevent duplicate shortcut: check if another snippet already uses the same prefix + trigger
+        const cleanTriggerLower = cleanTrigger.toLowerCase();
+        const duplicate = this.config.snippets.find(s =>
+            s.id !== snippetData.id &&
+            (s.prefix || ':') === cleanPrefix &&
+            (s.trigger || '').toLowerCase() === cleanTriggerLower
+        );
+        if (duplicate) {
+            throw new Error(`"${cleanPrefix}${cleanTrigger}" kısayolu zaten mevcut! Lütfen farklı bir kelime veya işaret seçin.`);
+        }
 
         let target: Snippet;
         if (snippetData.id) {

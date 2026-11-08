@@ -55,6 +55,7 @@
       "assets/logo.png",
       "assets/logo256.ico",
       "assets/logo512.png",
+      "assets/sounds/**/*",
       "resources/**/*",
       "!node_modules/**/*.map",
       "!node_modules/**/*.md"

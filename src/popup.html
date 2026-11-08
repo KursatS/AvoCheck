@@ -305,91 +305,110 @@
     const closeBtn = document.getElementById('close-btn');
 
     let progressAnim = null;
+    let popAudioBuffer = null;
+    let audioCtx = null;
 
-    function playSweetSound(type) {
+    function initAudio() {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (!AudioCtx) return;
-        const ctx = new AudioCtx();
-        const now = ctx.currentTime;
+        audioCtx = new AudioCtx();
+        fetch('./assets/sounds/pop.mp3')
+          .then(res => res.arrayBuffer())
+          .then(buf => audioCtx.decodeAudioData(buf))
+          .then(decoded => {
+            popAudioBuffer = decoded;
+          })
+          .catch(e => console.warn('Could not load pop.mp3, will use synthesized bubble pop:', e));
+      } catch (e) {}
+    }
+    initAudio();
+
+    function playSweetSound(type) {
+      try {
+        if (!audioCtx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) audioCtx = new AudioCtx();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        if (!audioCtx) return;
+
+        // If user audio file is decoded, play the exact pop sound slices from the uploaded file
+        if (popAudioBuffer) {
+          const src = audioCtx.createBufferSource();
+          src.buffer = popAudioBuffer;
+          const gain = audioCtx.createGain();
+          gain.gain.setValueAtTime(0.75, audioCtx.currentTime);
+
+          if (type === 'recci') {
+            // Birinci neşeli berrak bubble pop (0.55s - 0.38s)
+            src.playbackRate.setValueAtTime(1.05, audioCtx.currentTime);
+            src.connect(gain);
+            gain.connect(audioCtx.destination);
+            src.start(0, 0.55, 0.38);
+          } else if (type === 'warning') {
+            // İkinci ılık kehribar pop (2.55s - 0.38s)
+            src.playbackRate.setValueAtTime(1.0, audioCtx.currentTime);
+            src.connect(gain);
+            gain.connect(audioCtx.destination);
+            src.start(0, 2.55, 0.38);
+          } else if (type === 'error') {
+            // Düşük perdeli pop
+            src.playbackRate.setValueAtTime(0.8, audioCtx.currentTime);
+            src.connect(gain);
+            gain.connect(audioCtx.destination);
+            src.start(0, 4.85, 0.30);
+          } else {
+            // Üçüncü hafif doğal pop (4.85s - 0.30s)
+            src.playbackRate.setValueAtTime(0.95, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.55, audioCtx.currentTime);
+            src.connect(gain);
+            gain.connect(audioCtx.destination);
+            src.start(0, 4.85, 0.30);
+          }
+          return;
+        }
+
+        // Yedek: Kullanıcı dosyasındaki pop karakteristiğine birebir sentezlenmiş Bubble Pop
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
 
         if (type === 'recci') {
-          // Tatlı, neşeli iki tonlu zümrüt zili (Ding-Dong: D5 -> A5)
-          const osc1 = ctx.createOscillator();
-          const gain1 = ctx.createGain();
-          osc1.type = 'sine';
-          osc1.frequency.setValueAtTime(587.33, now);
-          gain1.gain.setValueAtTime(0.2, now);
-          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-          osc1.connect(gain1);
-          gain1.connect(ctx.destination);
-          osc1.start(now);
-          osc1.stop(now + 0.35);
-
-          const osc2 = ctx.createOscillator();
-          const gain2 = ctx.createGain();
-          osc2.type = 'sine';
-          osc2.frequency.setValueAtTime(880, now + 0.09);
-          gain2.gain.setValueAtTime(0.001, now);
-          gain2.gain.setValueAtTime(0.26, now + 0.09);
-          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-          osc2.connect(gain2);
-          gain2.connect(ctx.destination);
-          osc2.start(now + 0.09);
-          osc2.stop(now + 0.55);
+          // Bubbly upward chirp pop
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(1280, now + 0.08);
+          gain.gain.setValueAtTime(0.32, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         } else if (type === 'warning') {
-          // Sıcak ılık kehribar/amber ikili ton (A4 -> C#5)
-          const osc1 = ctx.createOscillator();
-          const gain1 = ctx.createGain();
-          osc1.type = 'triangle';
-          osc1.frequency.setValueAtTime(440, now);
-          gain1.gain.setValueAtTime(0.18, now);
-          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
-          osc1.connect(gain1);
-          gain1.connect(ctx.destination);
-          osc1.start(now);
-          osc1.stop(now + 0.28);
-
-          const osc2 = ctx.createOscillator();
-          const gain2 = ctx.createGain();
-          osc2.type = 'triangle';
-          osc2.frequency.setValueAtTime(554.37, now + 0.08);
-          gain2.gain.setValueAtTime(0.001, now);
-          gain2.gain.setValueAtTime(0.2, now + 0.08);
-          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-          osc2.connect(gain2);
-          gain2.connect(ctx.destination);
-          osc2.start(now + 0.08);
-          osc2.stop(now + 0.4);
-        } else if (type === 'none') {
-          // Zarif, yumuşak ahşap pıt/tok sesi (kulağı yormaz)
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(280, now);
-          osc.frequency.exponentialRampToValueAtTime(130, now + 0.09);
-          gain.gain.setValueAtTime(0.12, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.1);
+          // Warm amber pop
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(920, now + 0.08);
+          gain.gain.setValueAtTime(0.28, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         } else if (type === 'error') {
-          // Yumuşak hata sinyali
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(240, now);
-          osc.frequency.setValueAtTime(180, now + 0.1);
-          gain.gain.setValueAtTime(0.14, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.3);
+          // Low drop pop
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(160, now + 0.09);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        } else {
+          // Soft pop
+          osc.frequency.setValueAtTime(480, now);
+          osc.frequency.exponentialRampToValueAtTime(960, now + 0.07);
+          gain.gain.setValueAtTime(0.24, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
         }
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
       } catch (e) {
-        console.warn('Sweet audio cue failed:', e);
+        console.warn('Pop sound error:', e);
       }
     }
 
