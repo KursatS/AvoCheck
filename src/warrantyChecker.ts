@@ -89,30 +89,32 @@ export async function checkWarranty(serial: string): Promise<WarrantyInfo> {
       rawModel = ptitle;
     }
 
-    const rawStatus = getMatch(/<[^>]+class=["'][^"']*pill[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
-
     const cleanText = stripTags(html);
-    const upperText = cleanText.toUpperCase();
-    const upperStatus = rawStatus.toUpperCase();
 
-    const isNotGarantili = upperStatus.includes('DEĞİLDİR') ||
-                           upperStatus.includes('DEGILDIR') ||
-                           upperText.includes('GARANTİ KAPSAMINDA DEĞİLDİR') ||
-                           upperText.includes('GARANTI KAPSAMINDA DEGILDIR') ||
-                           cleanText.toLowerCase().includes('garanti kapsamında değildir') ||
-                           cleanText.toLowerCase().includes('kapsamında değildir');
+    // Status pills in Recci UI:
+    // Green: <div class="pill green"> Ürün Resmi Roborock Türkiye Üretici Garantisi Kapsamındadır. </div>
+    // Red / Danger: <div class="pill red"> Bu ürün Roborock Türkiye Garanti kapsamında değildir! </div>
+    // Amber / Expired: <div class="pill amber"> Garanti süresi dolmuştur </div>
+    const isGreenPill = /class=["'][^"']*pill\s+[^"']*green/i.test(html) ||
+                        /class=["'][^"']*green[^"']*pill/i.test(html);
 
-    const isGarantili = !isNotGarantili && (
-      upperStatus.includes('GARANTİ KAPSAMINDADIR') ||
-      upperStatus.includes('GARANTI KAPSAMINDADIR') ||
-      (upperText.includes('GARANTİ KAPSAMINDADIR') && !upperText.includes('DEĞİLDİR') && !upperText.includes('DEGILDIR')) ||
-      (cleanText.includes('Garanti Kapsamındadır') && !cleanText.includes('değildir') && !cleanText.includes('degildir'))
-    );
+    const isRedPill = /class=["'][^"']*pill\s+[^"']*(red|danger)/i.test(html) ||
+                      /class=["'][^"']*(red|danger)[^"']*pill/i.test(html);
+
+    const isAmberPill = /class=["'][^"']*pill\s+[^"']*(amber|warning)/i.test(html);
+
+    const isNotGarantili = isRedPill ||
+                           /kapsam[ıi]nda\s+de[ğg]ildir/i.test(cleanText) ||
+                           /garanti\s+kapsam[ıi]\s+d[ıi][şs][ıi]/i.test(cleanText);
 
     const isExpired = !isNotGarantili && (
-      upperStatus.includes('GARANTİ SÜRESİ DOLMUŞTUR') ||
-      upperStatus.includes('GARANTI SURESI DOLMUSTUR') ||
-      cleanText.toLowerCase().includes('garanti süresi dolmuştur')
+      isAmberPill ||
+      /garanti(?:si)?\s+s[üu]resi\s+dolmu[şs]tur/i.test(cleanText)
+    );
+
+    const isGarantili = !isNotGarantili && (
+      isGreenPill ||
+      (/garanti(?:si)?\s+kapsam[ıi]ndad[ıi]r/i.test(cleanText) && !/de[ğg]ildir/i.test(cleanText))
     );
 
     let warranty_end = '';
@@ -120,18 +122,18 @@ export async function checkWarranty(serial: string): Promise<WarrantyInfo> {
     let dateMatch;
     while ((dateMatch = dateItemRegex.exec(html)) !== null) {
       const text = stripTags(dateMatch[1]);
-      if (/Garanti Bitiş/i.test(text)) {
+      if (/biti[şs]/i.test(text)) {
         const m = text.match(/\d{2}\.\d{2}\.\d{4}/);
         if (m) warranty_end = m[0];
       }
     }
 
     if (!warranty_end) {
-      const genMatch = cleanText.match(/Garanti Bitiş[^\d]*(\d{2}\.\d{2}\.\d{4})/i);
+      const genMatch = cleanText.match(/(?:garanti(?:si)?\s*)?biti[şs][^\d]*(\d{2}\.\d{2}\.\d{4})/i);
       if (genMatch) warranty_end = genMatch[1];
     }
 
-    return { rawModel, rawColor, rawStatus, ptitle, cleanText, isGarantili, isExpired, isNotGarantili, warranty_end };
+    return { rawModel, rawColor, ptitle, cleanText, isGarantili, isExpired, isNotGarantili, warranty_end };
   }
 
   try {
