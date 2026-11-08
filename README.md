@@ -3,7 +3,7 @@
 # 🥑 AvoCheck
 ### Akıllı Roborock Garanti Takip & Masaüstü Asistanı
 
-[![Version](https://img.shields.io/badge/version-2.6.2-10b981.svg?style=for-the-badge)](https://github.com/KursatS/RecciTek-WCheck)
+[![Version](https://img.shields.io/badge/version-2.6.2-10b981.svg?style=for-the-badge)](https://github.com/KursatS/AvoCheck)
 [![Electron](https://img.shields.io/badge/Electron-34.5-0c0e12.svg?style=for-the-badge&logo=electron)](https://electronjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6.4-646CFF.svg?style=for-the-badge&logo=vite)](https://vitejs.dev)
@@ -34,9 +34,9 @@ AvoCheck, servis ihtiyaçlarına göre iki ayrı mimaride sunulmaktadır:
 | **📢 Canlı Cihaz Çağrı (Cihaz Sor)** | ❌ Yok (Hafifletildi) | ✅ Var |
 | **⚠️ Öncelikli Cihaz Takip Sistemi** | ❌ Yok (Hafifletildi) | ✅ Var |
 | **📊 Excel Z Raporu Personel Analizi** | ❌ Yok (Hafifletildi) | ✅ Var |
-| **İndirme / Erişim** | Kurulum Paketi (`release/`) | [GitHub Releases Sayfası](https://github.com/KursatS/RecciTek-WCheck/releases) veya `full-edition` dalı |
+| **İndirme / Erişim** | Kurulum Paketi (`release/`) | [GitHub Releases Sayfası](https://github.com/KursatS/AvoCheck/releases) veya `full-edition` dalı |
 
-> 💡 **Kurumsal (Ağır) Sürüm Notu:** Canlı personel cihaz çağırma, Firestore öncelikli cihaz senkronizasyonu ve 5 günlük Excel Z Raporu analizini içeren ağır kurumsal sürüme [GitHub Releases](https://github.com/KursatS/RecciTek-WCheck/releases) sayfasından `AvoCheck-Full-Setup-v2.6.2.exe` olarak veya `full-edition` Git dalından ulaşabilirsiniz.
+> 💡 **Kurumsal (Ağır) Sürüm Notu:** Canlı personel cihaz çağırma, Firestore öncelikli cihaz senkronizasyonu ve 5 günlük Excel Z Raporu analizini içeren ağır kurumsal sürüme [GitHub Releases](https://github.com/KursatS/AvoCheck/releases) sayfasından `AvoCheck-Full-Setup-v2.6.2.exe` olarak veya `full-edition` Git dalından ulaşabilirsiniz.
 
 ---
 

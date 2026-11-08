@@ -48,7 +48,7 @@
     "publish": {
       "provider": "github",
       "owner": "KursatS",
-      "repo": "RecciTek-WCheck"
+      "repo": "AvoCheck"
     },
     "files": [
       "out/**/*",
