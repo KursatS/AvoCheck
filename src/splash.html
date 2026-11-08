@@ -37,7 +37,7 @@
       left: -50%;
       width: 200%;
       height: 200%;
-      background: radial-gradient(circle at center, rgba(56, 189, 248, 0.15) 0%, transparent 50%);
+      background: radial-gradient(circle at center, rgba(16, 185, 129, 0.2) 0%, transparent 50%);
       animation: rotate 10s linear infinite;
     }
 
@@ -55,6 +55,29 @@
       z-index: 10;
       text-align: center;
       animation: fadeIn 1s ease-out;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .splash-logo {
+      width: 84px;
+      height: 84px;
+      border-radius: 22px;
+      margin-bottom: 12px;
+      box-shadow: 0 10px 28px rgba(16, 185, 129, 0.35);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      object-fit: cover;
+      animation: floatLogo 3s ease-in-out infinite;
+    }
+
+    @keyframes floatLogo {
+      0%, 100% {
+        transform: translateY(0px);
+      }
+      50% {
+        transform: translateY(-6px);
+      }
     }
 
     @keyframes fadeIn {
@@ -70,30 +93,30 @@
     }
 
     h1 {
-      font-size: 3rem;
+      font-size: 2.8rem;
       font-weight: 800;
       letter-spacing: -2px;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
       background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
     .version {
-      font-size: 1.1rem;
-      font-weight: 500;
-      color: #38bdf8;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #10b981;
       letter-spacing: 2px;
       text-transform: uppercase;
-      opacity: 0.8;
+      opacity: 0.9;
     }
 
     .loader {
-      margin-top: 40px;
-      width: 40px;
-      height: 40px;
+      margin-top: 30px;
+      width: 36px;
+      height: 36px;
       border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top-color: #38bdf8;
+      border-top-color: #10b981;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -106,9 +129,9 @@
 
     .brand {
       position: absolute;
-      bottom: 30px;
+      bottom: 24px;
       font-size: 0.8rem;
-      color: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.35);
       letter-spacing: 1px;
     }
   </style>
@@ -116,8 +139,9 @@
 
 <body>
   <div class="content">
+    <img src="./assets/logo.png" alt="RecciTek Avocado" class="splash-logo">
     <h1>RecciTek</h1>
-    <div class="version">Waranty Check</div>
+    <div class="version">Garanti Takip Sistemi</div>
     <div class="loader" style="margin-left: auto; margin-right: auto;"></div>
   </div>
   <div class="brand">Geliştirici: Kürşat Sinan | Garanti Kontrol Sistemi</div>

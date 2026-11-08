@@ -49,15 +49,15 @@
     .brand-logo {
       width: 34px;
       height: 34px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--pill-active-bg);
-      color: var(--pill-active-text);
-      font-weight: 800;
-      font-size: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      object-fit: cover;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+      border: 1px solid var(--border-subtle);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .brand-logo:hover {
+      transform: scale(1.1) rotate(4deg);
     }
 
     .brand-title {
@@ -1050,7 +1050,7 @@
   <!-- Header -->
   <header class="app-header">
     <div class="brand-wrap">
-      <div class="brand-logo">R</div>
+      <img src="./assets/logo.png" alt="RecciTek Logo" class="brand-logo">
       <span class="brand-title">RecciTek WCheck</span>
       <span class="badge-lite">LITE</span>
     </div>

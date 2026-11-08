@@ -1,5 +1,6 @@
 import { BrowserWindow, screen, app } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { is } from '@electron-toolkit/utils';
 import { loadSettings, saveSettings } from './settingsManager';
 
@@ -78,6 +79,14 @@ export class WindowManager {
         });
     }
 
+    private getIconPath(): string {
+        let iconPath = path.join(__dirname, '../../assets/logo.png');
+        if (!fs.existsSync(iconPath)) {
+            iconPath = path.join(process.resourcesPath, 'assets/logo.png');
+        }
+        return iconPath;
+    }
+
     createSplashWindow(): BrowserWindow {
         const splash = new BrowserWindow({
             width: 600,
@@ -85,6 +94,7 @@ export class WindowManager {
             frame: false,
             alwaysOnTop: true,
             resizable: false,
+            icon: this.getIconPath(),
             webPreferences: {
                 contextIsolation: true,
                 nodeIntegration: false
@@ -112,7 +122,7 @@ export class WindowManager {
                 nodeIntegration: false,
                 preload: this.preloadPath
             },
-            icon: path.join(__dirname, '../../assets/logo.png'),
+            icon: this.getIconPath(),
             autoHideMenuBar: true
         });
 
