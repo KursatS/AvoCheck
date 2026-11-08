@@ -10,6 +10,9 @@
   Pop $0
   nsExec::Exec 'taskkill /F /IM "TextExpander.exe" /T'
   Pop $0
+
+  ; Enforce clean modern install directory, avoiding nested 'RecciTek WCheck\AvoCheck'
+  StrCpy $INSTDIR "$LOCALAPPDATA\Programs\AvoCheck"
 !macroend
 
 !macro customInstallMode
@@ -24,4 +27,13 @@
   Delete "$DESKTOP\RecciTek WCheck.lnk"
   Delete "$SMPROGRAMS\RecciTek WCheck.lnk"
   Delete "$SMPROGRAMS\RecciTek WCheck\RecciTek WCheck.lnk"
+
+  ; Cleanup obsolete legacy RecciTek directory if leftover from uninstaller
+  RMDir /r "$LOCALAPPDATA\Programs\RecciTek WCheck"
+
+  ; When auto-updating, launch the new app immediately and quit installer so user never hangs
+  ${if} ${isUpdated}
+    ExecShell "open" "$INSTDIR\AvoCheck.exe" ""
+    Quit
+  ${endif}
 !macroend
