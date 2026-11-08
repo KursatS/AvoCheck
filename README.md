@@ -1,107 +1,159 @@
-# 🚀 RecciTek WCheck
+<div align="center">
 
-[![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)](https://github.com/KursatS/RecciTek-WCheck)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Electron](https://img.shields.io/badge/electron-34.0.0-purple.svg)](https://electronjs.org)
-[![Vite](https://img.shields.io/badge/vite-6.4.1-646CFF.svg)](https://vitejs.dev)
-[![TypeScript](https://img.shields.io/badge/typescript-5.7.3-3178C6.svg)](https://www.typescriptlang.org)
+# 🥑 AvoCheck
+### Akıllı Roborock Garanti Takip & Masaüstü Asistanı
 
-**RecciTek WCheck** — Gelişmiş Garanti Takip, Cihaz Çağrı ve Servis Analiz Sistemi. Panodan kopyalanan seri numaralarını anında algılar, Recci & KVK servis sunucularından garanti durumunu sorgular, canlı öncelikli cihaz takibi sağlar ve detaylı Z Raporu analizleri sunar.
+[![Version](https://img.shields.io/badge/version-2.6.2-10b981.svg?style=for-the-badge)](https://github.com/KursatS/RecciTek-WCheck)
+[![Electron](https://img.shields.io/badge/Electron-34.5-0c0e12.svg?style=for-the-badge&logo=electron)](https://electronjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-6.4-646CFF.svg?style=for-the-badge&logo=vite)](https://vitejs.dev)
+[![License](https://img.shields.io/badge/License-MIT-e2f952.svg?style=for-the-badge)](LICENSE)
+
+<p align="center">
+  <b>AvoCheck</b>, teknik servis teknisyenleri ve operasyon ekipleri için geliştirilmiş ultra hafif, ışık hızında masaüstü asistanıdır.<br/>
+  Panoya kopyalanan Roborock seri numaralarını anında algılar, yetkili servis sunucularından garanti durumunu sorgular, renk kodlu kartlarla bildirir ve sistem genelinde çalışan Espanso benzeri güçlü bir <b>Metin Genişletici (Text Expander)</b> sunar.
+</p>
+
+</div>
+
+---
+
+## 📦 Sürüm Mimarisi (Dual Edition)
+
+AvoCheck, servis ihtiyaçlarına göre iki ayrı mimaride sunulmaktadır:
+
+| Özellik | 🥑 AvoCheck Lite *(Bu Dağıtım / `main`)* | 🏢 AvoCheck Full / Kurumsal Sürüm |
+| :--- | :---: | :---: |
+| **Kullanıcı Girişi** | ❌ Gerekmez (Offline / Anında Açılış) | ✅ Firebase Firestore Yetkilendirme |
+| **Pano Tabanlı Garanti Sorgulama** | ✅ Var (Milisaniyeler içinde) | ✅ Var |
+| **⚡ Metin Genişletici (Text Expander)** | ✅ Var (Espanso tarzı global hook) | ✅ Var |
+| **Renk Kodlu Akıllı Popup'lar** | ✅ Var | ✅ Var |
+| **🔔 Tatlı Melodik Sesli Uyarılar** | ✅ Var (Web Audio API Chime) | ✅ Var |
+| **İkili Tema (Espresso & Yumuşak Yulaf)** | ✅ Var | ✅ Var |
+| **Excel Dışa Aktarım (.xlsx)** | ✅ Var (Tek tıkla) | ✅ Var |
+| **📢 Canlı Cihaz Çağrı (Cihaz Sor)** | ❌ Yok (Hafifletildi) | ✅ Var |
+| **⚠️ Öncelikli Cihaz Takip Sistemi** | ❌ Yok (Hafifletildi) | ✅ Var |
+| **📊 Excel Z Raporu Personel Analizi** | ❌ Yok (Hafifletildi) | ✅ Var |
+| **İndirme / Erişim** | Kurulum Paketi (`release/`) | [GitHub Releases Sayfası](https://github.com/KursatS/RecciTek-WCheck/releases) veya `full-edition` dalı |
+
+> 💡 **Kurumsal (Ağır) Sürüm Notu:** Canlı personel cihaz çağırma, Firestore öncelikli cihaz senkronizasyonu ve 5 günlük Excel Z Raporu analizini içeren ağır kurumsal sürüme [GitHub Releases](https://github.com/KursatS/RecciTek-WCheck/releases) sayfasından `AvoCheck-Full-Setup-v2.6.2.exe` olarak veya `full-edition` Git dalından ulaşabilirsiniz.
 
 ---
 
 ## 🖼️ Ekran Görüntüleri
 
-### Ana Panel & Açılış
-| Ana Sayfa | Açılış Ekranı (Splash) |
+### 🖥️ Ana Panel & Açılış Ekranı
+| Modern Soft Dashboard (AvoCheck Lite) | Zümrüt Avokado Açılış Ekranı |
 | :---: | :---: |
 | ![Ana Panel](assets/screenshots/home.png) | ![Açılış Ekranı](assets/screenshots/splash.png) |
 
-### Akıllı Durum Bildirimleri (Popups)
-| Garanti Kapsamında | Garanti Dışı / Fatura Kontrol | Bağlantı Sorunu |
-| :---: | :---: | :---: |
-| ![RECCI/KVK](assets/screenshots/inwarrantypopup.png) | ![Dışında](assets/screenshots/outofwarrantypopup.png) | ![Hata](assets/screenshots/connectionproblempopup.png) |
+### 🔔 Akıllı Durum Bildirimleri (Popups)
+| 🟢 Recci Garantili | 🟡 Süresi Dolmuş (Fatura Kontrol) |
+| :---: | :---: |
+| ![Recci Garantili](assets/screenshots/inwarrantypopup.png) | ![Fatura Kontrol](assets/screenshots/outofwarrantypopup.png) |
 
 ---
 
-## ✨ Güncel Özellikler (v2.6.1)
+## ✨ Öne Çıkan Özellikler
 
-- ⚡ **Akıllı Panodan Garanti Sorgulama**: Seri numaralarını panodan kopyaladığınız anda anında algılar. Özel sıfır tahsisli Regex HTML parser ile Recci ve KVK servis verilerini milisaniyeler içinde ekrana getirir.
-- 📋 **Hassas Model-Renk Kopyalama & Özelleştirilebilir Kısayol**: Popup üzerindeki kopyalama butonu veya kısayol (`Ctrl+Shift+C`) ile doğrudan `MODEL - RENK` (KVK için `GÜVENCE BİTİŞ TARİHİ : ...`) formatında temiz panoya alma. Kısayol tuşu **Ayarlar > Kısayol Yöneticisi** üzerinden dinamik olarak değiştirilebilir.
-- 🏷️ **Recci İthalat & Fatura Kontrol Rozeti**: Türkiye garantili olup sistemde süresi dolmuş görünen cihazlar için canlı yeşil `✓ RECCI GARANTİLİ` ve turuncu `(SÜRESİ DOLMUŞ - FATURA KONTROL)` akıllı rozet gösterimi.
-- 🔠 **AHK Tarzı "Büyük Harf Yapıştır" (Ctrl+Shift+V)**: Panodaki metinleri Türkçe karakter uyumlu olarak otomatik büyük harfe dönüştürüp hızlıca yapıştırma imkanı.
-- 📢 **Canlı Cihaz Çağrı (Cihaz Sor) Sistemi**: Kargo kabul ve servis personeli arasında anlık cihaz sorgulama, canlı yanıt takibi ve Web Audio API tabanlı pürüzsüz bildirim sesleri (`Chime / Pop`).
-- ⚠️ **Öncelikli Cihaz Takip Sistemi**: Acil takibe alınan cihazları Firestore veritabanı üzerinden tarih/saat damgasıyla canlı senkronize etme ve masaüstü popup bildirimleri fırlatma.
-- 📝 **Excel Z Raporu Analizi**: Servis kayıt dosyalarını sürükle-bırak yöntemiyle inceleme; en son 5 güne ait toplam servis kayıt sayılarını, model dağılımlarını ve personel (Kaydı Açan) bazlı adetleri grafiksel görselleştirme.
-- 🛡️ **GPU Donma / Siyah Ekran Koruması**: Dahili Intel HD Graphics ve ofis bilgisayarlarında Chromium swapchain kilitlenmelerini engelleyen otomatik kurtarma ve donanım hızlandırma optimize parametreleri.
+### 1. ⚡ Işık Hızında Pano Garanti Sorgulama
+- Excel'de, mailde veya servis programında Roborock seri numarasını `Ctrl+C` ile kopyaladığınız an sistem arkaplanda yakalar.
+- Regex motoru ile Recci servis sunucularından garanti sonucunu çeker ve ekranın sağ altında yaylı pop animasyonuyla fırlatır:
+  - 🟢 **RECCI GARANTİLİ:** Cihaz garantili, model ve garanti bitiş tarihi rozetiyle gösterilir.
+  - 🟡 **SÜRESİ DOLMUŞ (FATURA KONTROL):** Sistemde süresi dolmuş görünen ancak fatura tarihiyle garantisi devam edebilecek cihazlar için akıllı uyarı rozeti.
+  - ⚪ **GARANTİ DIŞI:** Türkiye garantisi bulunmayan cihazlar nötr gri renkte listelenir.
+  - 🔴 **BAĞLANTI HATASI:** Ağ kesintisi veya zaman aşımında nazik hata kartı.
+
+### 2. ⚡ Espanso Tarzı Yerel Metin Genişletici (Text Expander)
+- Windows'un yerel klavye kancası (`WH_KEYBOARD_LL`) ile çalışan, sıfır gecikmeli C# yardımcı iş parçacığı.
+- Windows'un **herhangi bir uygulamasında** (Word, Excel, Chrome, WhatsApp Web, Outlook vb.):
+  - `:adres` yazıldığında anında servis açık adresini yapıştırır.
+  - `:kargo` yazıldığında anlaşmalı kargo gönderi kodunu döker.
+  - `:garanti` yazıldığında standart müşteri bilgilendirme metnini iletir.
+- Kullanıcı dostu arayüz üzerinden sınırsız kısayol ekleme, düzenleme, arama ve canlı test sandbox'ı içerir.
+
+### 3. 🔔 Tatlı Melodik Sesli Uyarılar (Audio Cues)
+- Sorgu tamamlandığında ekrana bakmaya gerek kalmadan durumu kulağınızla anlayın:
+  - **Yeşil (Garantili):** Neşeli iki tonlu zümrüt zili (*Ding-Dong!*).
+  - **Sarı (Fatura):** Sıcak kehribar tonu.
+  - **Gri (Garantisiz):** Yumuşak ahşap pıt sesi.
+- Web Audio API ile sıfır harici dosya bağımlılığıyla çalışır, ayarlardan tek tıkla açılıp kapatılabilir.
+
+### 4. 🎨 Çift Renk Teması (Göz Dostu Tasarım)
+- ☕ **Espresso Koyu (Dark Mode):** Sıcak kahve ve kakao tonları (`#14110f`), koyu zemin üzerinde parlayan zümrüt ve neon lime vurgular.
+- 🌾 **Yumuşak Yulaf (Light Mode):** Kamaştırıcı beyazlar yerine gözü dinlendiren doğal keten ve yulaf kreması (`#e5e1d8` & `#f2eee5`).
+
+### 5. 📊 Excel Aktarımı & Yerel Önbellek
+- Gün içinde sorgulanan tüm cihazları tek tıkla monospaced formatta `.xlsx` dosyasına aktarın.
+- SQLite (`better-sqlite3`) yerel önbellek ile daha önce sorgulanmış seriler 3 gün boyunca tekrar ağ isteği yapmadan anında ekrana gelir.
 
 ---
 
-## 🛠️ Kurulum & Derleme
+## ⌨️ Klavye Kısayolları
+
+| Kısayol | Görev |
+| :--- | :--- |
+| `Ctrl + Shift + C` | Son sorgulanan cihazın `MODEL - RENK` bilgisini panoya kopyalar |
+| `Ctrl + Shift + V` | Panodaki metni otomatik Türkçe büyük harfe çevirip yapıştırır |
+| `Ctrl + Shift + M` | Pano izleme servisini geçici olarak duraklatır / devam ettirir |
+| `Ctrl + Shift + X` | Yerel SQLite sorgu önbelleğini anında temizler |
+
+---
+
+## 🛠️ Kurulum & Geliştirici Adımları
 
 ### Gereksinimler
 - Node.js 18+
 - npm
 
-### Geliştirici Adımları
+### Geliştirici Ortamı (Dev Mode)
 ```bash
 # Bağımlılıkları yükleyin
 npm install
 
-# Geliştirici modunda çalıştırın (Dev Mode)
+# Geliştirici modunu başlatın
 npm run dev
 
-# Projeyi derleyin (Build)
+# Projeyi derleyin
 npm run build
 ```
 
-### Setup / Windows Kurulum (.exe) Dosyası Oluşturma
-Uygulamanın Windows kurulum (NSIS `.exe`) paketini oluşturmak için:
+### Kurulum (.exe) Paketi Derleme
+Ofis bilgisayarları için optimize edilmiş, Türkçe kurulum sihirbazına sahip Windows kurulum paketini üretmek için:
 ```bash
-npm run dist
+npm run pack
+# veya tek seferde installer üretimi:
+npx electron-builder --win nsis --publish never
 ```
-Oluşturulan kurulum dosyası `release/` klasörü altına kaydedilecektir.
+Oluşturulan `AvoCheck Setup 2.6.2.exe` dosyası `release/` klasörüne kaydedilir.
 
 ---
 
-## 🎯 Kullanım
-
-1. **Seri Numarası Kopyalayın**: Panoya seri numarasını kopyaladığınız an sistem otomatik olarak garanti durumunu sorgular.
-2. **Popup'ı İnceleyin**: Ekranın sağ alt köşesinde beliren renk kodlu (Yeşil: RECCI, Mavi: KVK, Gri/Turuncu: Fatura Kontrol) masaüstü popup'ı ile durumu anında görün.
-3. **Kısayolla Kopyalayın**: `Ctrl+Shift+C` (veya belirlediğiniz kısayol) ya da Popup'taki `Kopyala` butonuna basarak doğrudan `MODEL - RENK` formatını panoya alın.
-4. **Cihaz Çağrısı Atın**: Kargo kabul personelinden "Cihaz Sor" sekmesiyle anlık cihaz bulunma çağrısı yapın.
-5. **Z Raporu Yükleyin**: Servis Excel dosyanızı sürükleyip bırakarak günlük personel ve model istatistiklerini raporlayın.
-
----
-
-## 📁 Dosya Yapısı
+## 📁 Dizin Yapısı
 
 ```
-RecciTek-WCheck/
-├── assets/                 # Logolar, ikonlar ve ekran görüntüleri
-├── src/                    # Kaynak kodları (TypeScript)
-│   ├── main.ts            # Ana Electron süreci & IPC İşleyicileri
-│   ├── windowManager.ts   # Pencere, Popup & Tray Yönetimi
-│   ├── settingsManager.ts # Ayar & Persistence Yönetimi
-│   ├── warrantyChecker.ts # Recci & KVK Garanti Scraper
-│   ├── cacheManager.ts    # SQLite Veritabanı (better-sqlite3)
-│   ├── ticketService.ts   # Firestore Entegrasyonu & Öncelikli Cihazlar
-│   ├── bonusCalculator.ts # Z Raporu Excel Parser
-│   ├── utils/             # Modüler UI ve İş Mantığı (Z-Report, Settings, Admin, Toast)
-│   └── *.html             # Modern Glassmorphic Arayüz Dosyaları
-├── release/               # Derlenen kurulum (.exe) dosyaları
-├── package.json           # Proje paketleri, bağımlılıklar ve versiyon
-└── README.md              # Kullanım ve Teknik Dokümantasyon
+AvoCheck/
+├── assets/                     # Gülen Avokado logoları, ikonlar (.ico/.png) ve ekran görüntüleri
+├── build/                      # NSIS Türkçe kurulum sihirbazı görselleri (.bmp) ve makrolar
+├── resources/                  # Yerel TextExpander C# Windows hook çalıştırılabilir dosyası
+├── src/                        # Modüler TypeScript Kaynak Kodları
+│   ├── main.ts                 # Ana Electron süreci, Pano dinleyici & Tray yönetimi
+│   ├── windowManager.ts        # Pencereler (Ana Panel, Splash, Akıllı Popup)
+│   ├── settingsManager.ts      # Veri dizini taşıma (AvoCheck) & Kullanıcı ayarları
+│   ├── textExpanderManager.ts  # C# Klavye kancası IPC yöneticisi & snippet motoru
+│   ├── warrantyChecker.ts      # Recci servis Regex sorgulama motoru
+│   ├── cacheManager.ts         # SQLite önbellek (better-sqlite3)
+│   ├── theme.css               # Neo-modern Espresso & Yulaf tasarım sistemi
+│   ├── index.html              # Ana Kontrol Paneli & Metin Genişletici Arayüzü
+│   ├── popup.html              # 144Hz GPU yaylı Pop bildirim penceresi & Web Audio sentezleyici
+│   └── splash.html             # Animasyonlu Avokado açılış ekranı
+├── package.json                # Optimize paket yapılandırması & NSIS parametreleri
+└── README.md                   # Proje kullanım ve tanıtım dokümantasyonu
 ```
 
 ---
 
-## 👨‍💻 Geliştirici
-
-**Kürşat Sinan**
-- GitHub: [@KursatS](https://github.com/KursatS)
-- Proje: [RecciTek-WCheck](https://github.com/KursatS/RecciTek-WCheck)
-
----
-
-⭐ Eğer bu proje işinizi kolaylaştırdıysa, GitHub üzerinden yıldız vermeyi unutmayın!
+## 👨‍💻 Geliştirici & Lisans
+- **Geliştirici:** Kürşat Sinan
+- **Lisans:** MIT License — Özgürce kullanılabilir ve geliştirilebilir.
+- **Maskot:** 🥑 Gülen Avokado (Smiling Avocado)

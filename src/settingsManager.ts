@@ -9,6 +9,7 @@ export interface AppSettings {
   autoStartEnabled: boolean;
   preventDuplicatePopup: boolean;
   clipboardUpperEnabled?: boolean;
+  soundEnabled?: boolean;
   shortcuts?: {
     copyModelColor?: string;
     clearCache?: string;
@@ -60,6 +61,7 @@ export function loadSettings(): AppSettings {
     autoStartEnabled: false,
     preventDuplicatePopup: true,
     clipboardUpperEnabled: true,
+    soundEnabled: true,
     shortcuts: {
       copyModelColor: 'CommandOrControl+Shift+C',
       clearCache: 'CommandOrControl+Shift+X',

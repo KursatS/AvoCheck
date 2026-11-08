@@ -212,7 +212,12 @@ export class WindowManager {
             this.popupVisible = true;
 
             const settings = loadSettings();
-            const payload = { ...info, sizeLevel, theme: settings.theme || 'dark' };
+            const payload = { 
+                ...info, 
+                sizeLevel, 
+                theme: settings.theme || 'dark',
+                soundEnabled: settings.soundEnabled !== false
+            };
             this.currentPopup.webContents.send('popup-data', payload, timeoutDuration);
 
             this.popupStartTime = Date.now();

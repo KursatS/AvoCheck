@@ -39,6 +39,7 @@ const sPopupTimeout = document.getElementById('popup-timeout') as HTMLInputEleme
 const sAutoStart = document.getElementById('auto-start') as HTMLInputElement
 const sPreventDuplicate = document.getElementById('prevent-duplicate') as HTMLInputElement
 const sClipboardUpper = document.getElementById('clipboard-upper') as HTMLInputElement
+const sSoundEnabled = document.getElementById('sound-enabled') as HTMLInputElement
 const btnCheckUpdate = document.getElementById('btn-check-update')
 const updateCheckStatus = document.getElementById('update-check-status')
 
@@ -500,6 +501,7 @@ async function loadSettingsToUI() {
   sAutoStart.checked = s.autoStartEnabled || false
   sPreventDuplicate.checked = s.preventDuplicatePopup || false
   sClipboardUpper.checked = s.clipboardUpperEnabled !== false
+  if (sSoundEnabled) sSoundEnabled.checked = s.soundEnabled !== false
 
   clipboardUpperEnabled = s.clipboardUpperEnabled !== false
   updateUpperToggleUI(clipboardUpperEnabled)
@@ -520,7 +522,8 @@ async function saveCurrentSettings() {
     popupTimeout: parseInt(sPopupTimeout.value),
     autoStartEnabled: sAutoStart.checked,
     preventDuplicatePopup: sPreventDuplicate.checked,
-    clipboardUpperEnabled: sClipboardUpper.checked
+    clipboardUpperEnabled: sClipboardUpper.checked,
+    soundEnabled: sSoundEnabled ? sSoundEnabled.checked : true
   }
 
   try {
@@ -548,6 +551,7 @@ sPopupTimeout.addEventListener('input', () => triggerAutoSave(500))
 sAutoStart.addEventListener('change', () => triggerAutoSave(0))
 sPreventDuplicate.addEventListener('change', () => triggerAutoSave(0))
 sClipboardUpper.addEventListener('change', () => triggerAutoSave(0))
+if (sSoundEnabled) sSoundEnabled.addEventListener('change', () => triggerAutoSave(0))
 
 function setupShortcutRecorder(input: HTMLInputElement) {
   if (!input) return
