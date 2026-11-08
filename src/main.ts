@@ -266,6 +266,14 @@ function setupIpcHandlers() {
     win?.close();
   });
 
+  ipcMain.on('popup-hover-enter', () => {
+    windowManager.pausePopupTimeout();
+  });
+
+  ipcMain.on('popup-hover-leave', () => {
+    windowManager.resumePopupTimeout();
+  });
+
   ipcMain.on('manual-server-status-refresh', () => {
     checkServerStatus();
   });

@@ -255,14 +255,15 @@ export class WindowManager {
             clearTimeout(this.popupTimeout);
             this.popupTimeout = null;
             const elapsed = Date.now() - this.popupStartTime;
-            this.popupRemaining = Math.max(0, this.popupRemaining - elapsed);
+            this.popupRemaining = Math.max(1500, this.popupRemaining - elapsed);
         }
     }
 
     resumePopupTimeout(): void {
-        if (!this.popupTimeout && this.popupVisible && this.popupRemaining > 0) {
+        if (!this.popupTimeout && this.popupVisible) {
             this.popupStartTime = Date.now();
-            this.popupTimeout = setTimeout(() => this.closePopup(), this.popupRemaining);
+            const delay = Math.max(1500, this.popupRemaining);
+            this.popupTimeout = setTimeout(() => this.closePopup(), delay);
         }
     }
 

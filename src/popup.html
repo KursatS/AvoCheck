@@ -528,19 +528,24 @@
       // Start hardware-accelerated progress countdown
       startProgressCountdown(duration);
 
-      popup.onmouseenter = () => {
+      const onEnter = () => {
         if (progressAnim && progressAnim.playState === 'running') {
           progressAnim.pause();
         }
         window.electronAPI.popupHoverEnter();
       };
 
-      popup.onmouseleave = () => {
+      const onLeave = () => {
         if (progressAnim && progressAnim.playState === 'paused') {
           progressAnim.play();
         }
         window.electronAPI.popupHoverLeave();
       };
+
+      popup.onmouseenter = onEnter;
+      popup.onmouseleave = onLeave;
+      document.body.onmouseenter = onEnter;
+      document.body.onmouseleave = onLeave;
     });
   </script>
 </body>
