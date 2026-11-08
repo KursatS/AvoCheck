@@ -14,12 +14,11 @@
       --width: 470px;
       --height: 330px;
       --radius: 24px;
-      --glass-border: rgba(255, 255, 255, 0.2);
       --text-main: #fff;
-      --popup-text-muted: rgba(255, 255, 255, 0.9);
+      --popup-text-muted: rgba(255, 255, 255, 0.92);
       --grad-recci: linear-gradient(135deg, #059669 0%, #10b981 100%);
       --grad-warning: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
-      --grad-none: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+      --grad-none: linear-gradient(135deg, #334155 0%, #475569 100%);
       --grad-error: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);
       --fs-status: 20px;
       --fs-serial: 32px;
@@ -39,14 +38,16 @@
       user-select: none;
     }
 
-    body {
+    html, body {
       width: 100vw;
       height: 100vh;
+      margin: 0;
+      padding: 0;
+      background: transparent !important;
+      overflow: hidden;
       display: flex;
       justify-content: center;
       align-items: center;
-      background: transparent;
-      overflow: hidden;
     }
 
     .popup-container {
@@ -61,15 +62,55 @@
       justify-content: center;
       text-align: center;
       padding: 28px 24px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--glass-border);
-      animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      /* Inset specular highlight removes need for border, eliminating DWM gray corner fringe */
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+      border: none;
+      outline: none;
       overflow: hidden;
+      opacity: 0;
+      transform: scale(0.65) translateY(35px);
+      transform-origin: bottom center;
+      will-change: transform, opacity;
+      -webkit-font-smoothing: antialiased;
     }
 
-    @keyframes zoomIn {
-      from { transform: scale(0.85); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+    /* Spring-loaded Pop Entrance */
+    .animate-pop {
+      animation: springPop 0.44s cubic-bezier(0.16, 1.25, 0.3, 1) forwards;
+    }
+
+    @keyframes springPop {
+      0% {
+        opacity: 0;
+        transform: scale(0.65) translateY(40px);
+      }
+      65% {
+        opacity: 1;
+        transform: scale(1.035) translateY(-5px);
+      }
+      85% {
+        transform: scale(0.985) translateY(2px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    /* Snappy Exit */
+    .pop-out {
+      animation: popOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+    }
+
+    @keyframes popOut {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.7) translateY(20px);
+      }
     }
 
     /* Color themes */
@@ -80,30 +121,30 @@
 
     .close-btn {
       position: absolute;
-      top: 12px;
-      right: 12px;
-      width: 30px;
-      height: 30px;
+      top: 14px;
+      right: 14px;
+      width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       color: rgba(255, 255, 255, 0.9);
       border-radius: 50%;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      transition: all 0.2s;
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       z-index: 50;
     }
 
     .close-btn:hover {
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.45);
       color: #fff;
-      transform: scale(1.08);
+      transform: scale(1.1);
     }
 
     .status-badge {
-      background: rgba(0, 0, 0, 0.25);
+      background: rgba(0, 0, 0, 0.22);
       backdrop-filter: blur(8px);
       padding: 8px 18px;
       border-radius: 20px;
@@ -161,15 +202,15 @@
       font-size: 0.85rem;
       font-weight: 700;
       color: #fff;
-      background: rgba(0, 0, 0, 0.3);
+      background: rgba(0, 0, 0, 0.28);
       border: 1px solid rgba(255, 255, 255, 0.3);
-      padding: 4px 14px;
+      padding: 5px 14px;
       border-radius: 12px;
       margin-bottom: 16px;
     }
 
     .copy-button {
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.16);
       border: 1px solid rgba(255, 255, 255, 0.35);
       padding: 10px 24px;
       border-radius: 12px;
@@ -181,34 +222,36 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: all 0.2s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       backdrop-filter: blur(5px);
     }
 
     .copy-button:hover {
       background: rgba(255, 255, 255, 0.3);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
     }
 
     .progress-wrapper {
       position: absolute;
-      bottom: 8px;
+      bottom: 10px;
       left: 20px;
       right: 20px;
-      height: 4px;
-      background: rgba(0, 0, 0, 0.15);
+      height: 5px;
+      background: rgba(0, 0, 0, 0.2);
       overflow: hidden;
-      border-radius: 10px;
+      border-radius: 999px;
     }
 
     .progress-bar {
       height: 100%;
       width: 100%;
-      background: rgba(255, 255, 255, 0.7);
-      box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-      transform-origin: left;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+      border-radius: 999px;
+      transform-origin: left center;
       will-change: transform;
+      transform: scaleX(1);
     }
   </style>
 </head>
@@ -267,14 +310,40 @@
     const progress = document.getElementById('progress');
     const closeBtn = document.getElementById('close-btn');
 
-    closeBtn.addEventListener('click', () => window.electronAPI.closeWindow());
+    let progressAnim = null;
+
+    function startProgressCountdown(durationMs) {
+      if (progressAnim) {
+        try { progressAnim.cancel(); } catch (e) {}
+      }
+      progress.style.transform = 'scaleX(1)';
+      // Web Animations API: Runs purely on compositor GPU thread at display refresh rate (144Hz+)
+      progressAnim = progress.animate([
+        { transform: 'scaleX(1)' },
+        { transform: 'scaleX(0)' }
+      ], {
+        duration: durationMs,
+        easing: 'linear',
+        fill: 'forwards'
+      });
+    }
+
+    closeBtn.addEventListener('click', () => {
+      if (progressAnim) {
+        try { progressAnim.pause(); } catch (e) {}
+      }
+      popup.classList.add('pop-out');
+      setTimeout(() => {
+        window.electronAPI.closeWindow();
+      }, 160);
+    });
 
     window.electronAPI.onPopupData((info, duration) => {
       const status = (info.warranty_status || '').toUpperCase();
       const isError = info.is_error || status.includes('HATA') || status.includes('BAĞLANTI');
 
       popup.className = 'popup-container size-' + (info.sizeLevel || 2);
-      popup.classList.remove('theme-recci', 'theme-warning', 'theme-none', 'theme-error');
+      popup.classList.remove('theme-recci', 'theme-warning', 'theme-none', 'theme-error', 'animate-pop', 'pop-out');
 
       serialDisplay.textContent = info.serial || '';
       dateBadge.style.display = 'none';
@@ -342,29 +411,24 @@
         setTimeout(() => { copyBtnText.textContent = originalText; }, 1500);
       };
 
-      let startTime = Date.now();
-      let progressInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const currentProgress = Math.max(0, 100 - (elapsed / duration * 100));
-        progress.style.transform = `scaleX(${currentProgress / 100})`;
-        if (currentProgress <= 0) clearInterval(progressInterval);
-      }, 50);
+      // Trigger spring-loaded pop-in animation on data display
+      void popup.offsetWidth; // layout reflow
+      popup.classList.add('animate-pop');
+
+      // Start hardware-accelerated progress countdown
+      startProgressCountdown(duration);
 
       popup.onmouseenter = () => {
-        if (progressInterval) clearInterval(progressInterval);
+        if (progressAnim && progressAnim.playState === 'running') {
+          progressAnim.pause();
+        }
         window.electronAPI.popupHoverEnter();
       };
 
       popup.onmouseleave = () => {
-        const currentTransform = progress.style.transform || 'scaleX(1)';
-        const currentWidth = parseFloat(currentTransform.replace('scaleX(', '').replace(')', '')) * 100;
-        startTime = Date.now() - ((100 - currentWidth) / 100 * duration);
-        progressInterval = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          const currentProgress = Math.max(0, 100 - (elapsed / duration * 100));
-          progress.style.transform = `scaleX(${currentProgress / 100})`;
-          if (currentProgress <= 0) clearInterval(progressInterval);
-        }, 50);
+        if (progressAnim && progressAnim.playState === 'paused') {
+          progressAnim.play();
+        }
         window.electronAPI.popupHoverLeave();
       };
     });
