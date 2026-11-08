@@ -1,3 +1,3 @@
 !macro customHeader
-  !system "echo 'Custom installer header'"
+  !system "echo 'AvoCheck NSIS build ready.'"
 !macroend

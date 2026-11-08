@@ -15,10 +15,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
-    "date-fns": "^4.1.0",
-    "electron-updater": "^6.8.3",
-    "jsdom": "^22.1.0",
-    "xlsx": "^0.18.5"
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -26,7 +23,6 @@
     "@tailwindcss/postcss": "^4.2.1",
     "@tailwindcss/vite": "^4.2.1",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/jsdom": "^27.0.0",
     "@types/node": "^20.0.0",
     "autoprefixer": "^10.4.20",
     "electron": "^34.0.0",
@@ -35,7 +31,8 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.7.3",
-    "vite": "^6.1.1"
+    "vite": "^6.1.1",
+    "xlsx": "^0.18.5"
   },
   "overrides": {
     "vite": "^6.1.1"
@@ -43,6 +40,8 @@
   "build": {
     "appId": "com.avocheck.app",
     "productName": "AvoCheck",
+    "compression": "normal",
+    "asar": true,
     "directories": {
       "output": "release"
     },
@@ -56,24 +55,40 @@
       "assets/logo.png",
       "assets/logo256.ico",
       "assets/logo512.png",
-      "resources/**/*"
+      "resources/**/*",
+      "!node_modules/**/*.map",
+      "!node_modules/**/*.md"
     ],
     "icon": "assets/logo256.ico",
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AvoCheck",
       "installerIcon": "assets/logo256.ico",
       "uninstallerIcon": "assets/logo256.ico",
       "installerHeaderIcon": "assets/logo256.ico",
-      "deleteAppDataOnUninstall": true,
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "deleteAppDataOnUninstall": false,
       "displayLanguageSelector": false,
-      "language": "1033",
+      "language": "1055",
+      "differentialPackage": false,
       "include": "build/installer.nsh"
     },
     "win": {
       "icon": "assets/logo256.ico",
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "mac": {
       "icon": "logo.icns"

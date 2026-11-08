@@ -118,7 +118,7 @@ export class WindowManager {
             minWidth: 640,
             minHeight: 500,
             show: false,
-            backgroundColor: settings.theme === 'light' ? '#ecefea' : '#0e1015',
+            backgroundColor: settings.theme === 'light' ? '#e5e1d8' : '#14110f',
             webPreferences: {
                 contextIsolation: true,
                 nodeIntegration: false,
