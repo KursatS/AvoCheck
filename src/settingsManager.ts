@@ -14,20 +14,7 @@ export interface AppSettings {
     clearCache?: string;
     toggleMonitoring?: string;
   };
-  role?: 'kargo_kabul' | 'mh' | 'admin';
-  personnelName?: string;
-  username?: string;
-  isAdmin?: boolean;
-  isLoggedIn?: boolean;
-  rememberMe?: boolean;
-  autoLogin?: boolean;
-  savedUsername?: string;
-  savedPassword?: string;
-  theme?: 'dark' | 'midnight' | 'ocean' | 'sunset';
-  workingHours?: {
-    start: string;
-    end: string;
-  };
+  theme?: 'dark' | 'light';
   windowBounds?: {
     x: number;
     y: number;
@@ -53,38 +40,38 @@ export function loadSettings(): AppSettings {
       clearCache: 'CommandOrControl+Shift+X',
       toggleMonitoring: 'CommandOrControl+Shift+M'
     },
-    role: 'kargo_kabul',
-    personnelName: '',
-    theme: 'dark',
-    rememberMe: false,
-    autoLogin: false,
-    savedUsername: '',
-    savedPassword: '',
-    workingHours: {
-      start: '09:30',
-      end: '18:30'
-    }
+    theme: 'dark'
   };
 
   try {
     const p = getSettingsPath();
     if (fs.existsSync(p)) {
-      const savedSettings = JSON.parse(fs.readFileSync(p, 'utf8'));
-      return { ...defaultSettings, ...savedSettings, isLoggedIn: true };
+      const data = fs.readFileSync(p, 'utf8');
+      const parsed = JSON.parse(data);
+      // Normalize legacy theme names to 'dark' | 'light'
+      let theme: 'dark' | 'light' = 'dark';
+      if (parsed.theme === 'light') theme = 'light';
+      return {
+        ...defaultSettings,
+        ...parsed,
+        theme
+      };
     }
-  } catch (error) {
-    console.error('Error loading settings:', error);
+  } catch (err) {
+    console.error('Failed to load settings:', err);
   }
-
-  return { ...defaultSettings, isLoggedIn: true };
+  return defaultSettings;
 }
 
 export function saveSettings(settings: AppSettings): void {
   try {
-    const settingsPath = getSettingsPath();
-    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-  } catch (error) {
-    console.error('Error saving settings:', error);
+    const p = getSettingsPath();
+    const dir = path.dirname(p);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(p, JSON.stringify(settings, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to save settings:', err);
   }
 }

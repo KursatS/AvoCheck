@@ -7,12 +7,19 @@ const cardsDiv = document.getElementById('cards')!
 const searchInput = document.getElementById('search') as HTMLInputElement
 const toggleBtn = document.getElementById('toggle')!
 const themeBtn = document.getElementById('theme-toggle')!
+const themeIcon = document.getElementById('theme-icon')!
+const themeText = document.getElementById('theme-text')!
+const btnThemeDark = document.getElementById('btn-theme-dark') as HTMLButtonElement
+const btnThemeLight = document.getElementById('btn-theme-light') as HTMLButtonElement
 const clearCacheBtn = document.getElementById('clear-cache')!
 const clipboardUpperToggleBtn = document.getElementById('clipboard-upper-toggle')!
 const statusDot = document.getElementById('status-dot')!
 const statusInfo = document.getElementById('status-info')!
 const statusRefreshBtn = document.getElementById('status-refresh-btn')!
 const devicesCount = document.getElementById('devices-count')!
+const statRecciCount = document.getElementById('stat-recci-count')
+const statTotalCount = document.getElementById('stat-total-count')
+const statTodaySub = document.getElementById('stat-today-sub')
 const btnExportExcel = document.getElementById('btn-export-excel')
 
 // Navigation Tabs
@@ -121,6 +128,7 @@ function renderCards() {
   if (devicesCount) {
     devicesCount.textContent = `${filtered.length} / ${cachedDevices.length} Cihaz`
   }
+  updateDashboardStats()
 
   if (filtered.length === 0) {
     cardsDiv.innerHTML = `
@@ -418,30 +426,65 @@ api.onServerStatusUpdate((res: any) => {
   }
 })
 
-// ── Theme Management ──
-const ALL_THEMES = ['dark', 'midnight', 'ocean', 'sunset'] as const
-const THEME_ICONS: Record<string, string> = {
-  dark: '🌙',
-  midnight: '🔮',
-  ocean: '🌊',
-  sunset: '🌅'
-}
-let currentTheme = 'dark'
+// ── Dual Theme Management (Sadece Siyah & Beyaz) ──
+let currentTheme: 'dark' | 'light' = 'dark'
 
 function applyTheme(theme: string) {
-  currentTheme = theme
-  document.body.classList.remove(...ALL_THEMES)
-  document.body.classList.add(theme)
-  themeBtn.textContent = THEME_ICONS[theme] || '🌙'
+  currentTheme = theme === 'light' ? 'light' : 'dark'
+  document.body.classList.remove('dark', 'light')
+  document.body.classList.add(currentTheme)
+
+  if (currentTheme === 'light') {
+    if (themeIcon) themeIcon.textContent = '🌙'
+    if (themeText) themeText.textContent = 'Koyu Tema'
+    btnThemeLight?.classList.add('active')
+    btnThemeDark?.classList.remove('active')
+  } else {
+    if (themeIcon) themeIcon.textContent = '☀️'
+    if (themeText) themeText.textContent = 'Açık Tema'
+    btnThemeDark?.classList.add('active')
+    btnThemeLight?.classList.remove('active')
+  }
 }
 
 themeBtn.onclick = () => {
-  const idx = ALL_THEMES.indexOf(currentTheme as any)
-  const next = ALL_THEMES[(idx + 1) % ALL_THEMES.length]
-  applyTheme(next)
+  const nextTheme: 'dark' | 'light' = currentTheme === 'dark' ? 'light' : 'dark'
+  applyTheme(nextTheme)
   api.getSettings().then((s: any) => {
-    api.saveSettings({ ...s, theme: next })
+    api.saveSettings({ ...s, theme: nextTheme })
   })
+}
+
+if (btnThemeDark) {
+  btnThemeDark.onclick = () => {
+    applyTheme('dark')
+    api.getSettings().then((s: any) => {
+      api.saveSettings({ ...s, theme: 'dark' })
+    })
+  }
+}
+
+if (btnThemeLight) {
+  btnThemeLight.onclick = () => {
+    applyTheme('light')
+    api.getSettings().then((s: any) => {
+      api.saveSettings({ ...s, theme: 'light' })
+    })
+  }
+}
+
+function updateDashboardStats() {
+  if (statTotalCount) statTotalCount.textContent = String(cachedDevices.length)
+
+  const recciCount = cachedDevices.filter(d => {
+    const s = (d.warranty_status || '').toUpperCase()
+    return s.includes('GARANTİLİ') && !s.includes('DOLMUŞ') && !s.includes('FATURA')
+  }).length
+  if (statRecciCount) statRecciCount.textContent = String(recciCount)
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayCount = cachedDevices.filter(d => (d.copy_date || '').startsWith(todayStr)).length
+  if (statTodaySub) statTodaySub.textContent = `Bugün taranan: ${todayCount} cihaz`
 }
 
 // ── Settings Auto-Save & Recorder Logic ──

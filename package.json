@@ -17,10 +17,7 @@
     "better-sqlite3": "^11.10.0",
     "date-fns": "^4.1.0",
     "electron-updater": "^6.8.3",
-    "firebase": "^12.9.0",
     "jsdom": "^22.1.0",
-    "jspdf": "^2.5.2",
-    "jspdf-autotable": "^3.8.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

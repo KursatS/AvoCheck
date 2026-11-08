@@ -212,8 +212,6 @@ function setupIpcHandlers() {
     preventDuplicatePopup: currentSettings.preventDuplicatePopup,
     clipboardUpperEnabled: currentSettings.clipboardUpperEnabled !== false,
     shortcuts: currentSettings.shortcuts,
-    role: currentSettings.role || 'kargo_kabul',
-    personnelName: currentSettings.personnelName || '',
     theme: currentSettings.theme || 'dark'
   }));
 
@@ -290,11 +288,6 @@ function setupIpcHandlers() {
       };
     }
   });
-
-  // Stubs for clean compatibility
-  ipcMain.handle('get-priority-devices', async () => []);
-  ipcMain.handle('get-users', async () => []);
-  ipcMain.handle('logout', async () => true);
 
   // Text Expander (Espanso-like Snippets) IPC Handlers
   ipcMain.handle('get-snippets-config', async () => {
