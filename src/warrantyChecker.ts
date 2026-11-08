@@ -94,7 +94,7 @@ export async function checkWarranty(serial: string): Promise<WarrantyInfo> {
     // Status pills in Recci UI:
     // Green: <div class="pill green"> Ürün Resmi Roborock Türkiye Üretici Garantisi Kapsamındadır. </div>
     // Red / Danger: <div class="pill red"> Bu ürün Roborock Türkiye Garanti kapsamında değildir! </div>
-    // Amber / Expired: <div class="pill amber"> Garanti süresi dolmuştur </div>
+    // Amber / Warning: Garanti süresi dolmuştur
     const isGreenPill = /class=["'][^"']*pill\s+[^"']*green/i.test(html) ||
                         /class=["'][^"']*green[^"']*pill/i.test(html);
 
@@ -136,140 +136,74 @@ export async function checkWarranty(serial: string): Promise<WarrantyInfo> {
     return { rawModel, rawColor, ptitle, cleanText, isGarantili, isExpired, isNotGarantili, warranty_end };
   }
 
-  try {
-    const html = await makeRequest(`https://www.recciteknoloji.com/garantibelgesi2/?q=${serial}`);
-    const parsed = parseRecciHtml(html);
+  // Only query Recci site (No KVK query)
+  const html = await makeRequest(`https://www.recciteknoloji.com/garantibelgesi2/?q=${serial}`);
+  const parsed = parseRecciHtml(html);
 
-    let model_name = (parsed.rawModel || parsed.ptitle).toUpperCase().trim()
-      .replace(/^(MODEL|MARKA)\s*:\s*/i, '')
-      .replace(/^(MODEL|MARKA)\s*/i, '')
-      .trim();
+  let model_name = (parsed.rawModel || parsed.ptitle).toUpperCase().trim()
+    .replace(/^(MODEL|MARKA)\s*:\s*/i, '')
+    .replace(/^(MODEL|MARKA)\s*/i, '')
+    .trim();
 
-    let model_color = (parsed.rawColor || '').toUpperCase().trim()
-      .replace(/^RENK\s*:\s*/i, '')
-      .replace(/^RENK\s*/i, '')
-      .trim();
+  let model_color = (parsed.rawColor || '').toUpperCase().trim()
+    .replace(/^RENK\s*:\s*/i, '')
+    .replace(/^RENK\s*/i, '')
+    .trim();
 
-    if (!model_color && parsed.ptitle) {
-      const parts = parsed.ptitle.split(' ');
-      if (parts.length > 1) {
-        const lastWord = parts[parts.length - 1].toUpperCase();
-        if (['SİYAH', 'BEYAZ', 'GRİ', 'KIRMIZI', 'MAVİ', 'GOLD', 'ROSE'].includes(lastWord)) {
-          model_color = lastWord;
-          if (!model_name || model_name === 'ROBOROCK') {
-            model_name = parts.slice(0, -1).join(' ').trim();
-          }
+  if (!model_color && parsed.ptitle) {
+    const parts = parsed.ptitle.split(' ');
+    if (parts.length > 1) {
+      const lastWord = parts[parts.length - 1].toUpperCase();
+      if (['SİYAH', 'BEYAZ', 'GRİ', 'KIRMIZI', 'MAVİ', 'GOLD', 'ROSE'].includes(lastWord)) {
+        model_color = lastWord;
+        if (!model_name || model_name === 'ROBOROCK') {
+          model_name = parts.slice(0, -1).join(' ').trim();
         }
       }
     }
-
-    // Strip ROBOROCK brand prefix
-    model_name = model_name.replace(/^ROBOROCK\s+/i, '').replace(/^ROBOROCK$/i, '').trim();
-
-    // Standardize QREVO to Q REVO
-    model_name = model_name.replace(/QREVO/g, 'Q REVO');
-
-    if (model_name.includes('S8')) {
-      model_name = model_name.replace(/SON[Iİ]C/g, '').trim();
-    }
-
-    if (model_color && model_name.endsWith(model_color)) {
-      model_name = model_name.substring(0, model_name.length - model_color.length).trim();
-    }
-
-    const isValidRecci = !parsed.isNotGarantili && (parsed.isGarantili || parsed.isExpired);
-
-    if (isValidRecci) {
-      if (!model_name) {
-        model_name = 'ROBOROCK';
-      }
-
-      const statusStr = (parsed.isExpired && !parsed.isGarantili)
-        ? 'RECCI GARANTILI (SÜRESİ DOLMUŞ - FATURA KONTROL)'
-        : 'RECCI GARANTILI';
-
-      return {
-        serial,
-        warranty_status: statusStr,
-        model_name,
-        model_color,
-        warranty_end: parsed.warranty_end || undefined
-      };
-    }
-  } catch (error: any) {
-    if (error.message && error.message.includes('HTTP Error:')) {
-      // Fallback
-    } else {
-      throw new Error('TIMEOUT');
-    }
   }
 
-  try {
-    const json = await makeRequest(`https://guvencesorgula.kvkteknikservis.com/api/device-data?imeiNo=${serial}`);
+  // Strip ROBOROCK brand prefix
+  model_name = model_name.replace(/^ROBOROCK\s+/i, '').replace(/^ROBOROCK$/i, '').trim();
 
-    const data = JSON.parse(json) as any;
+  // Standardize QREVO to Q REVO
+  model_name = model_name.replace(/QREVO/g, 'Q REVO');
 
-    if (data.IsSucceeded && data.ResultData && Array.isArray(data.ResultData) && data.ResultData.length > 0 && data.ResultData[0] !== 'No data found') {
-      const deviceData = data.ResultData[0];
-      const description = deviceData.DESCRIPTION || '';
-
-      let model_name = '';
-      let model_color = '';
-
-      if (description.toLowerCase().includes('roborock')) {
-        const parts = description.split(' ');
-        if (parts.length >= 3) {
-          if (parts[0].toUpperCase() === 'ROBOROCK') {
-            model_name = parts.slice(1, -1).join(' ').trim();
-            model_color = parts[parts.length - 1].trim();
-          } else {
-            model_name = parts.slice(0, -1).join(' ').trim();
-            model_color = parts[parts.length - 1].trim();
-          }
-        } else {
-          model_name = description;
-        }
-      } else {
-        model_name = description;
-      }
-
-      model_name = model_name.toUpperCase().trim();
-      model_color = model_color.toUpperCase().trim();
-
-      // Strip ROBOROCK brand prefix
-      model_name = model_name.replace(/^ROBOROCK\s+/i, '').replace(/^ROBOROCK$/i, '').trim();
-
-      // Standardize QREVO to Q REVO
-      model_name = model_name.replace(/QREVO/g, 'Q REVO');
-
-      if (model_name.includes('S8')) {
-        model_name = model_name.replace(/SON[Iİ]C/g, '').trim();
-      }
-
-      if (model_color && model_name.endsWith(model_color)) {
-        model_name = model_name.substring(0, model_name.length - model_color.length).trim();
-      }
-
-      return {
-        serial,
-        warranty_status: 'KVK GARANTILI',
-        model_name,
-        model_color,
-        warranty_end: deviceData.WARRANTYEND
-      };
-    }
-  } catch (error: any) {
-    if (error.message && error.message.includes('HTTP Error:')) {
-      // Fallback
-    } else {
-      throw new Error('TIMEOUT');
-    }
+  if (model_name.includes('S8')) {
+    model_name = model_name.replace(/SON[Iİ]C/g, '').trim();
   }
 
+  if (model_color && model_name.endsWith(model_color)) {
+    model_name = model_name.substring(0, model_name.length - model_color.length).trim();
+  }
+
+  // ── Rule 1: Recci Garantili -> Yeşil (Green) ──
+  if (parsed.isGarantili && !parsed.isNotGarantili) {
+    return {
+      serial,
+      warranty_status: 'RECCI GARANTİLİ',
+      model_name: model_name || 'ROBOROCK',
+      model_color,
+      warranty_end: parsed.warranty_end || undefined
+    };
+  }
+
+  // ── Rule 2: Garantisiz ama Fatura / Bitiş Tarihi Var -> Sarı (Yellow/Amber) ──
+  if (parsed.warranty_end || parsed.isExpired) {
+    return {
+      serial,
+      warranty_status: 'FATURA KONTROL (SÜRESİ DOLMUŞ)',
+      model_name: model_name || 'ROBOROCK',
+      model_color,
+      warranty_end: parsed.warranty_end || undefined
+    };
+  }
+
+  // ── Rule 3: Garantisiz ve Tarih Yok -> Gri (Gray) ──
   return {
     serial,
-    warranty_status: 'GARANTI KAPSAMI DISINDA',
-    model_name: '',
-    model_color: ''
+    warranty_status: 'GARANTİ DIŞI',
+    model_name: model_name || '',
+    model_color: model_color || ''
   };
 }

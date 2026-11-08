@@ -100,13 +100,11 @@ function renderCards() {
 
     // Filter chip matching
     if (activeFilter === 'recci') {
-      if (!status.includes('RECCI') || status.includes('DOLMUŞ')) return false
+      if (!status.includes('RECCI') || status.includes('DOLMUŞ') || status.includes('FATURA')) return false
     } else if (activeFilter === 'expired') {
-      if (!status.includes('DOLMUŞ') && !status.includes('FATURA KONTROL')) return false
-    } else if (activeFilter === 'kvk') {
-      if (!status.includes('KVK')) return false
+      if (!status.includes('DOLMUŞ') && !status.includes('FATURA')) return false
     } else if (activeFilter === 'out') {
-      if (status.includes('RECCI') || status.includes('KVK')) return false
+      if (status.includes('RECCI') || status.includes('DOLMUŞ') || status.includes('FATURA')) return false
     }
 
     // Text search query matching
@@ -138,34 +136,27 @@ function renderCards() {
   filtered.forEach((item: any) => {
     const card = document.createElement('div')
     const status = (item.warranty_status || '').toUpperCase()
-    const isRecci = status.includes('RECCI')
-    const isExpiredRecci = status.includes('SÜRESİ DOLMUŞ') || status.includes('FATURA KONTROL')
-    const isKvk = status.includes('KVK')
+    const isRecci = status.includes('RECCI') && !status.includes('DOLMUŞ') && !status.includes('FATURA')
+    const isExpiredRecci = status.includes('SÜRESİ DOLMUŞ') || status.includes('FATURA KONTROL') || (!isRecci && !!item.warranty_end)
 
     let cardClass = 'device-card'
     let badgeClass = 'status-badge none'
     let badgeText = '✕ GARANTİ DIŞI'
 
     if (isExpiredRecci) {
-      cardClass += ' recci'
+      cardClass += ' warning'
       badgeClass = 'status-badge recci-expired'
-      badgeText = '⚠️ SİSTEM SÜRESİ DOLMUŞ (FATURA KONTROL)'
+      badgeText = '⚠️ SÜRESİ DOLMUŞ (FATURA KONTROL)'
     } else if (isRecci) {
       cardClass += ' recci'
       badgeClass = 'status-badge recci'
       badgeText = '✓ RECCI GARANTİLİ'
-    } else if (isKvk) {
-      cardClass += ' kvk'
-      badgeClass = 'status-badge kvk'
-      badgeText = '✓ KVK GARANTİLİ'
     } else {
       cardClass += ' out-of-warranty'
     }
 
     const { fullStr } = formatModelData(item)
-    const copyTextPayload = isKvk && item.warranty_end
-      ? `GÜVENCE BİTİŞ TARİHİ : ${item.warranty_end}`
-      : fullStr
+    const copyTextPayload = fullStr
 
     card.className = cardClass
     card.innerHTML = `

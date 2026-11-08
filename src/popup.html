@@ -6,7 +6,7 @@
   <title>RecciTek Popup</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./input.css">
   <link rel="stylesheet" href="./theme.css">
   <style>
@@ -18,10 +18,9 @@
       --text-main: #fff;
       --popup-text-muted: rgba(255, 255, 255, 0.9);
       --grad-recci: linear-gradient(135deg, #059669 0%, #10b981 100%);
-      --grad-kvk: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-      --grad-none: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
-      --grad-error: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-      --grad-priority: linear-gradient(135deg, #991b1b 0%, #dc2626 55%, #f97316 100%);
+      --grad-warning: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+      --grad-none: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+      --grad-error: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);
       --fs-status: 20px;
       --fs-serial: 32px;
       --fs-model: 22px;
@@ -61,30 +60,30 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 30px 26px 28px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      padding: 28px 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
       border: 1px solid var(--glass-border);
-      animation: zoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
       overflow: hidden;
     }
 
     @keyframes zoomIn {
-      from { transform: scale(0.82); opacity: 0; }
+      from { transform: scale(0.85); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
     }
 
+    /* Color themes */
     .theme-recci { background: var(--grad-recci); }
-    .theme-kvk { background: var(--grad-kvk); }
+    .theme-warning { background: var(--grad-warning); }
     .theme-none { background: var(--grad-none); }
     .theme-error { background: var(--grad-error); }
-    .theme-priority { background: var(--grad-priority); }
 
     .close-btn {
       position: absolute;
       top: 12px;
       right: 12px;
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -98,22 +97,22 @@
     }
 
     .close-btn:hover {
-      background: rgba(239, 68, 68, 0.85);
+      background: rgba(0, 0, 0, 0.5);
       color: #fff;
       transform: scale(1.08);
     }
 
     .status-badge {
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.25);
       backdrop-filter: blur(8px);
-      padding: 8px 16px;
+      padding: 8px 18px;
       border-radius: 20px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       border: 1px solid rgba(255, 255, 255, 0.25);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       max-width: calc(100% - 32px);
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     }
@@ -129,103 +128,67 @@
     .status-text {
       color: var(--text-main);
       font-size: var(--fs-status);
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: 0.5px;
       text-transform: uppercase;
-      white-space: normal;
-      word-break: break-word;
       text-align: center;
       line-height: 1.25;
     }
 
-    .sub-status-badge {
-      display: none;
-      font-size: 0.75rem;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #fbbf24;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(251, 191, 36, 0.45);
-      padding: 3px 12px;
-      border-radius: 20px;
-      margin: -14px 0 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    }
-
     .serial-number {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: var(--fs-serial);
       font-weight: 800;
       color: var(--text-main);
-      margin-bottom: 8px;
-      line-height: 1.05;
-      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      line-height: 1.1;
+      letter-spacing: 0.5px;
       word-break: break-word;
     }
 
     .model-info {
       font-size: var(--fs-model);
-      font-weight: 500;
-      color: var(--popup-text-muted);
-      margin-bottom: 20px;
-      line-height: 1.2;
-    }
-
-    .priority-meta {
-      display: none;
-      width: 100%;
-      max-width: 380px;
-      font-size: 13px;
-      color: #fef08a;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(245, 158, 11, 0.45);
-      border-radius: 12px;
-      line-height: 1.4;
-      margin: -6px 0 20px;
-      padding: 8px 14px;
-      text-align: center;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-
-    .copy-button,
-    .action-btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      padding: 12px 28px;
-      border-radius: 14px;
-      color: #fff;
-      font-size: 16px;
       font-weight: 600;
+      color: var(--popup-text-muted);
+      margin-bottom: 12px;
+      line-height: 1.25;
+    }
+
+    .date-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 4px 14px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+
+    .copy-button {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      padding: 10px 24px;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      transition: all 0.25s ease;
+      gap: 8px;
+      transition: all 0.2s ease;
       backdrop-filter: blur(5px);
     }
 
-    .copy-button:hover,
-    .action-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
+    .copy-button:hover {
+      background: rgba(255, 255, 255, 0.3);
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    }
-
-    .copy-button:active,
-    .action-btn:active {
-      transform: scale(0.97);
-    }
-
-    .action-row {
-      display: none;
-      justify-content: center;
-      width: 100%;
-    }
-
-    .action-btn {
-      min-width: 0;
-      width: auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
     .progress-wrapper {
@@ -234,7 +197,7 @@
       left: 20px;
       right: 20px;
       height: 4px;
-      background: rgba(0, 0, 0, 0.1);
+      background: rgba(0, 0, 0, 0.15);
       overflow: hidden;
       border-radius: 10px;
     }
@@ -242,8 +205,8 @@
     .progress-bar {
       height: 100%;
       width: 100%;
-      background: rgba(255, 255, 255, 0.6);
-      box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.7);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
       transform-origin: left;
       will-change: transform;
     }
@@ -266,11 +229,10 @@
       </div>
       <span id="status-text" class="status-text">Yükleniyor...</span>
     </div>
-    <div id="sub-status-badge" class="sub-status-badge"></div>
 
     <div id="serial" class="serial-number">...</div>
     <div id="model" class="model-info">...</div>
-    <div id="priority-meta" class="priority-meta"></div>
+    <div id="date-badge" class="date-badge" style="display:none;"></div>
 
     <button id="copy-btn" class="copy-button">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -278,12 +240,8 @@
         <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
       </svg>
-      <span id="copy-btn-text">Kopyala</span>
+      <span id="copy-btn-text">Model Kopyala</span>
     </button>
-
-    <div id="action-row" class="action-row">
-      <button id="open-priority-btn" class="action-btn">Cihaz'a Git</button>
-    </div>
 
     <div id="progress-wrapper" class="progress-wrapper">
       <div id="progress" class="progress-bar"></div>
@@ -293,40 +251,34 @@
   <script>
     const icons = {
       check: '<svg class="check-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>',
-      info: '<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
-      error: '<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+      warning: '<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+      error: '<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+      info: '<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
     };
 
     const popup = document.getElementById('popup');
     const statusText = document.getElementById('status-text');
-    const subStatusBadge = document.getElementById('sub-status-badge');
     const statusIconContainer = document.getElementById('status-icon-container');
     const serialDisplay = document.getElementById('serial');
     const modelDisplay = document.getElementById('model');
-    const priorityMeta = document.getElementById('priority-meta');
+    const dateBadge = document.getElementById('date-badge');
     const copyBtn = document.getElementById('copy-btn');
     const copyBtnText = document.getElementById('copy-btn-text');
-    const actionRow = document.getElementById('action-row');
-    const openPriorityBtn = document.getElementById('open-priority-btn');
-    const progressWrapper = document.getElementById('progress-wrapper');
     const progress = document.getElementById('progress');
     const closeBtn = document.getElementById('close-btn');
 
     closeBtn.addEventListener('click', () => window.electronAPI.closeWindow());
 
     window.electronAPI.onPopupData((info, duration) => {
-      const isPriority = info.variant === 'priority';
       const status = (info.warranty_status || '').toUpperCase();
+      const isError = info.is_error || status.includes('HATA') || status.includes('BAĞLANTI');
 
-      popup.className = 'popup-container size-' + (info.sizeLevel || 3);
-      popup.classList.remove('theme-recci', 'theme-kvk', 'theme-none', 'theme-error', 'theme-priority');
+      popup.className = 'popup-container size-' + (info.sizeLevel || 2);
+      popup.classList.remove('theme-recci', 'theme-warning', 'theme-none', 'theme-error');
 
-      serialDisplay.textContent = info.serial || 'Unknown Serial';
-      subStatusBadge.style.display = 'none';
-      priorityMeta.style.display = 'none';
-      actionRow.style.display = 'none';
+      serialDisplay.textContent = info.serial || '';
+      dateBadge.style.display = 'none';
       copyBtn.style.display = 'none';
-      progressWrapper.style.display = 'block';
 
       let cleanModel = (info.model_name || '').toUpperCase().trim()
         .replace(/^ROBOROCK\s+/i, '').replace(/^ROBOROCK$/i, '').replace(/QREVO/g, 'Q REVO').trim();
@@ -339,108 +291,80 @@
 
       const formattedModelStr = cleanColor ? `${cleanModel} - ${cleanColor}` : cleanModel;
 
-      if (isPriority) {
-        popup.classList.add('theme-priority');
-        statusText.textContent = 'ÖNCELİKLİ CİHAZ';
-        statusIconContainer.innerHTML = icons.error;
-        modelDisplay.textContent = info.customer_name || 'Belirtilmedi';
-        priorityMeta.textContent = info.description || 'Bu cihaz öncelikli cihaz listesinde bulunuyor.';
-        priorityMeta.style.display = 'block';
-        actionRow.style.display = 'flex';
-        progressWrapper.style.display = 'none';
-      } else if (info.is_error) {
+      // 1. Kırmızı: İnternet Bağlantı Hatası
+      if (isError) {
         popup.classList.add('theme-error');
-        statusText.textContent = status || 'HATA';
+        statusText.textContent = 'İNTERNET BAĞLANTI HATASI';
         statusIconContainer.innerHTML = icons.error;
-        modelDisplay.textContent = 'Bağlantı kesildi';
-      } else if (status.includes('RECCI')) {
+        modelDisplay.textContent = 'Sunucuya ulaşılamadı, bağlantınızı kontrol edin';
+      }
+      // 2. Yeşil: Recci Garantili
+      else if (status.includes('GARANTİLİ') && !status.includes('DOLMUŞ') && !status.includes('FATURA')) {
         popup.classList.add('theme-recci');
-        if (status.includes('SÜRESİ DOLMUŞ') || status.includes('FATURA KONTROL')) {
-          statusText.textContent = 'RECCI GARANTİLİ';
-          statusIconContainer.innerHTML = icons.check;
-          subStatusBadge.textContent = '⚠️ SİSTEM GARANTİ SÜRESİ DOLMUŞ';
-          subStatusBadge.style.display = 'inline-block';
-          modelDisplay.textContent = formattedModelStr;
-          priorityMeta.innerHTML = '⚠️ <span style="color:#fbbf24; font-weight:800;">LÜTFEN FATURA TARİHİNİ İNCELEYİNİZ!</span>';
-          priorityMeta.style.display = 'block';
-          copyBtn.style.display = 'inline-flex';
-        } else {
-          statusText.textContent = status;
-          statusIconContainer.innerHTML = icons.check;
-          subStatusBadge.style.display = 'none';
-          modelDisplay.textContent = formattedModelStr;
-          copyBtn.style.display = 'inline-flex';
-        }
-      } else if (status.includes('KVK')) {
-        popup.classList.add('theme-kvk');
-        statusText.textContent = status;
+        statusText.textContent = 'RECCI GARANTİLİ';
         statusIconContainer.innerHTML = icons.check;
-        modelDisplay.textContent = formattedModelStr;
+        modelDisplay.textContent = formattedModelStr || 'ROBOROCK';
+        if (info.warranty_end) {
+          dateBadge.textContent = 'Bitiş Tarihi: ' + info.warranty_end;
+          dateBadge.style.display = 'inline-flex';
+        }
         copyBtn.style.display = 'inline-flex';
-      } else {
+      }
+      // 3. Sarı: Garantisiz ama Fatura / Bitiş Tarihi Var
+      else if (status.includes('FATURA') || status.includes('DOLMUŞ') || info.warranty_end) {
+        popup.classList.add('theme-warning');
+        statusText.textContent = 'SÜRESİ DOLMUŞ (FATURA KONTROL)';
+        statusIconContainer.innerHTML = icons.warning;
+        modelDisplay.textContent = formattedModelStr || 'ROBOROCK';
+        if (info.warranty_end) {
+          dateBadge.textContent = '📅 Bitiş Tarihi: ' + info.warranty_end;
+          dateBadge.style.display = 'inline-flex';
+        } else {
+          dateBadge.textContent = '⚠️ Lütfen Fatura Tarihini İnceleyin!';
+          dateBadge.style.display = 'inline-flex';
+        }
+        copyBtn.style.display = 'inline-flex';
+      }
+      // 4. Gri: Garantisiz ve Tarih Yok
+      else {
         popup.classList.add('theme-none');
-        statusText.textContent = status || 'BİLGİ';
+        statusText.textContent = 'GARANTİ DIŞI';
         statusIconContainer.innerHTML = icons.info;
-        modelDisplay.textContent = 'Garanti kapsamı dışında';
+        modelDisplay.textContent = formattedModelStr || 'Roborock Türkiye Garanti Dışı';
+        copyBtn.style.display = 'none';
       }
 
       copyBtn.onclick = () => {
-        let textToCopy = '';
-        if (status.includes('KVK') && info.warranty_end) {
-          textToCopy = `GÜVENCE BİTİŞ TARİHİ : ${info.warranty_end}`;
-        } else if (formattedModelStr) {
-          textToCopy = formattedModelStr;
-        } else {
-          textToCopy = info.serial || '';
-        }
+        const textToCopy = formattedModelStr || info.serial || '';
         navigator.clipboard.writeText(textToCopy);
         const originalText = copyBtnText.textContent;
         copyBtnText.textContent = 'Kopyalandı!';
-        copyBtn.style.background = 'rgba(255, 255, 255, 0.4)';
-        setTimeout(() => {
-          copyBtnText.textContent = originalText;
-          copyBtn.style.background = '';
-        }, 1500);
-      };
-
-      openPriorityBtn.onclick = () => {
-        window.electronAPI.openPriorityDevice({
-          id: info.id,
-          serial: info.serial
-        });
-        window.electronAPI.closeWindow();
+        setTimeout(() => { copyBtnText.textContent = originalText; }, 1500);
       };
 
       let startTime = Date.now();
-      let progressInterval = null;
-
-      function updateProgress() {
-        if (isPriority) return;
+      let progressInterval = setInterval(() => {
         const elapsed = Date.now() - startTime;
         const currentProgress = Math.max(0, 100 - (elapsed / duration * 100));
         progress.style.transform = `scaleX(${currentProgress / 100})`;
-        if (currentProgress <= 0 && progressInterval) {
-          clearInterval(progressInterval);
-        }
-      }
-
-      if (!isPriority) {
-        progress.style.transform = 'scaleX(1)';
-        progressInterval = setInterval(updateProgress, 50);
-      }
+        if (currentProgress <= 0) clearInterval(progressInterval);
+      }, 50);
 
       popup.onmouseenter = () => {
-        if (isPriority) return;
         if (progressInterval) clearInterval(progressInterval);
         window.electronAPI.popupHoverEnter();
       };
 
       popup.onmouseleave = () => {
-        if (isPriority) return;
         const currentTransform = progress.style.transform || 'scaleX(1)';
         const currentWidth = parseFloat(currentTransform.replace('scaleX(', '').replace(')', '')) * 100;
         startTime = Date.now() - ((100 - currentWidth) / 100 * duration);
-        progressInterval = setInterval(updateProgress, 50);
+        progressInterval = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const currentProgress = Math.max(0, 100 - (elapsed / duration * 100));
+          progress.style.transform = `scaleX(${currentProgress / 100})`;
+          if (currentProgress <= 0) clearInterval(progressInterval);
+        }, 50);
         window.electronAPI.popupHoverLeave();
       };
     });

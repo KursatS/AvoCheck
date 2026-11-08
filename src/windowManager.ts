@@ -125,12 +125,32 @@ export class WindowManager {
 
         this.mainWindowReady = false;
         this.loadFile(this.mainWindow, 'index.html');
-        this.mainWindow.once('ready-to-show', () => {
+
+        let hasShown = false;
+        const showWindow = () => {
+            if (hasShown || !this.mainWindow || this.mainWindow.isDestroyed()) return;
+            hasShown = true;
             this.mainWindowReady = true;
-        });
-        this.mainWindow.webContents.on('did-finish-load', () => {
-            this.mainWindowReady = true;
-        });
+            this.mainWindow.show();
+            this.mainWindow.focus();
+
+            // Force reflow/repaint to prevent Windows Chromium flex layout glitch
+            try {
+                const size = this.mainWindow.getSize();
+                this.mainWindow.setSize(size[0] + 1, size[1]);
+                setTimeout(() => {
+                    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+                        this.mainWindow.setSize(size[0], size[1]);
+                    }
+                }, 50);
+            } catch (err) { }
+
+            this.mainWindow.webContents.send('refresh-cards');
+        };
+
+        this.mainWindow.once('ready-to-show', showWindow);
+        this.mainWindow.webContents.once('did-finish-load', showWindow);
+        setTimeout(showWindow, 1200);
 
         // Auto-recover if renderer crashes or freezes (prevents black screen on office GPUs)
         this.mainWindow.webContents.on('render-process-gone', (_event, details) => {

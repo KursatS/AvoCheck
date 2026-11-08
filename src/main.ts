@@ -68,13 +68,7 @@ let statusInterval: NodeJS.Timeout | null = null;
 function extractCopyText(data: any): string {
   if (!data) return '';
 
-  const status = (data.warranty_status || '').toUpperCase();
-
-  if (status.includes('KVK') && data.warranty_end) {
-    return `GÜVENCE BİTİŞ TARİHİ : ${data.warranty_end}`;
-  }
-
-  if (status.includes('RECCI') && data.model_name && data.model_name !== 'MODEL BULUNAMADI') {
+  if (data.model_name && data.model_name !== 'MODEL BULUNAMADI') {
     let cleanModel = (data.model_name || '').toUpperCase().trim()
       .replace(/^ROBOROCK\s+/i, '').replace(/^ROBOROCK$/i, '').replace(/QREVO/g, 'Q REVO').trim();
     let cleanColor = (data.model_color && data.model_color !== 'RENK BULUNAMADI')
