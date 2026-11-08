@@ -297,6 +297,24 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.on('start-update-download', async () => {
+    try {
+      await autoUpdater.downloadUpdate();
+    } catch (err: any) {
+      console.error('Download update error:', err?.message);
+      const mainWindow = windowManager?.getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-error', err?.message || 'İndirme başarısız');
+      }
+    }
+  });
+
+  ipcMain.on('install-update', () => {
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.quitAndInstall(false, true);
+    setTimeout(() => app.exit(0), 500);
+  });
+
   // Text Expander (Espanso-like Snippets) IPC Handlers
   ipcMain.handle('get-snippets-config', async () => {
     return TextExpanderManager.getInstance().getConfig();
