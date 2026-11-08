@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
+import { getAppDataDir } from './settingsManager';
 const electron = require('electron');
 const { app } = electron;
 
@@ -13,7 +14,7 @@ function getCacheMaxAgeMs(): number {
 export function initCache() {
   console.log('Initializing cache...');
   try {
-    const dbDir = path.join(app.getPath('documents'), 'RecciTek');
+    const dbDir = getAppDataDir();
     console.log('DB Directory:', dbDir);
     const fs = require('fs');
 
@@ -161,5 +162,5 @@ export function deleteEntry(serial: string): Promise<void> {
 }
 
 export function getDatabasePath(): string {
-  return path.join(app.getPath('documents'), 'RecciTek', 'cache.db');
+  return path.join(getAppDataDir(), 'cache.db');
 }

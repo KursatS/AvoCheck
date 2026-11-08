@@ -48,7 +48,7 @@ if (!gotTheLock) {
 
       dialog.showMessageBox(mainWindow, {
         type: 'info',
-        title: 'RecciTek WCheck',
+        title: 'AvoCheck',
         message: 'Uygulama zaten çalışıyor.',
         detail: 'Lütfen sistem tepsisindeki (tray) simgeyi kontrol edin.',
         buttons: ['Tamam']
@@ -386,7 +386,7 @@ function createTray() {
   const icon = nativeImage.createFromPath(iconPath);
 
   tray = new Tray(icon);
-  tray.setToolTip('RecciTek WCheck Lite');
+  tray.setToolTip('AvoCheck');
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: 'Göster',
@@ -441,7 +441,7 @@ function initializeApp() {
 
 app.whenReady().then(() => {
   if (process.platform === 'win32') {
-    app.setAppUserModelId('RecciTek WCheck');
+    app.setAppUserModelId('AvoCheck');
   }
   initCache();
   initializeApp();

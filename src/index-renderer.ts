@@ -400,7 +400,7 @@ if (btnExportExcel) {
       const ws = XLSX.utils.json_to_sheet(exportRows)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Cihaz Geçmişi')
-      const fileName = `RecciTek_Garanti_Gecmisi_${new Date().toISOString().slice(0, 10)}.xlsx`
+      const fileName = `AvoCheck_Garanti_Gecmisi_${new Date().toISOString().slice(0, 10)}.xlsx`
       XLSX.writeFile(wb, fileName)
       showToast('Excel dosyası başarıyla indirildi.', 'success')
     } catch (e: any) {

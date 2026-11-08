@@ -89,6 +89,7 @@ export class WindowManager {
 
     createSplashWindow(): BrowserWindow {
         const splash = new BrowserWindow({
+            title: 'AvoCheck',
             width: 600,
             height: 400,
             frame: false,
@@ -109,6 +110,7 @@ export class WindowManager {
         const bounds = settings.windowBounds;
 
         this.mainWindow = new BrowserWindow({
+            title: 'AvoCheck',
             width: bounds?.width || 980,
             height: bounds?.height || 680,
             x: bounds?.x,

@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { getAppDataDir } from './settingsManager';
 import { spawn, ChildProcess, execSync } from 'child_process';
 
 export interface Snippet {
@@ -29,7 +30,7 @@ export class TextExpanderManager {
     private healthyTimer: NodeJS.Timeout | null = null;
 
     private constructor() {
-        const docDir = path.join(app.getPath('documents'), 'RecciTek');
+        const docDir = getAppDataDir();
         if (!fs.existsSync(docDir)) {
             try {
                 fs.mkdirSync(docDir, { recursive: true });

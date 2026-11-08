@@ -23,8 +23,33 @@ export interface AppSettings {
   };
 }
 
+export function getAppDataDir(): string {
+  const avoDir = path.join(app.getPath('documents'), 'AvoCheck');
+  const legacyDir = path.join(app.getPath('documents'), 'RecciTek');
+
+  if (!fs.existsSync(avoDir)) {
+    if (fs.existsSync(legacyDir)) {
+      try {
+        if (typeof fs.cpSync === 'function') {
+          fs.cpSync(legacyDir, avoDir, { recursive: true });
+        }
+      } catch (err) {
+        console.error('Failed to migrate legacy documents:', err);
+      }
+    }
+    if (!fs.existsSync(avoDir)) {
+      try {
+        fs.mkdirSync(avoDir, { recursive: true });
+      } catch (err) {
+        console.error('Failed to create AvoCheck directory:', err);
+      }
+    }
+  }
+  return avoDir;
+}
+
 export function getSettingsPath(): string {
-  return path.join(app.getPath('documents'), 'RecciTek', 'settings.json');
+  return path.join(getAppDataDir(), 'settings.json');
 }
 
 export function loadSettings(): AppSettings {
