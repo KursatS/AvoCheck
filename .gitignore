@@ -12,6 +12,7 @@ release/
 *.zip
 *.dmg
 *.AppImage
+*.blockmap
 
 # IDEs and Editors
 .vscode/
@@ -29,12 +30,30 @@ tsconfig.tsbuildinfo
 .DS_Store
 Thumbs.db
 
-# Database and Local Storage (IMPORTANT)
+# Database, Local Storage & Spreadsheets
 *.sqlite
 *.db
+*.db-journal
 settings.json
+snippets.json
 backup/
+*.xlsx
+*.xls
+*.csv
 
-# Logs
+# Environment & Config
+.env
+.env.*
+
+# Logs & Temporary Files
 logs/
 *.log
+*.tmp
+scratch*
+*.bak
+
+# Agent & AI Artifacts
+.agent/
+.agents/
+.gemini/
+.memory-bank.md
