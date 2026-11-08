@@ -17,8 +17,10 @@ const btnExportExcel = document.getElementById('btn-export-excel')
 
 // Navigation Tabs
 const tabHistory = document.getElementById('tab-history')!
+const tabSnippets = document.getElementById('tab-snippets')!
 const tabSettings = document.getElementById('tab-settings')!
 const viewHistory = document.getElementById('view-history')!
+const viewSnippets = document.getElementById('view-snippets')!
 const viewSettings = document.getElementById('view-settings')!
 
 // Settings Controls
@@ -273,25 +275,27 @@ document.querySelectorAll('.filter-chip').forEach((chip: any) => {
 })
 
 // ── Tab Navigation ──
-function switchTab(view: 'history' | 'settings') {
-  if (view === 'history') {
-    tabHistory.classList.add('active')
-    tabSettings.classList.remove('active')
-    viewHistory.classList.add('active')
-    viewSettings.classList.remove('active')
-  } else {
-    tabSettings.classList.add('active')
-    tabHistory.classList.remove('active')
-    viewSettings.classList.add('active')
-    viewHistory.classList.remove('active')
+function switchTab(view: 'history' | 'settings' | 'snippets') {
+  tabHistory.classList.toggle('active', view === 'history')
+  tabSnippets.classList.toggle('active', view === 'snippets')
+  tabSettings.classList.toggle('active', view === 'settings')
+
+  viewHistory.classList.toggle('active', view === 'history')
+  viewSnippets.classList.toggle('active', view === 'snippets')
+  viewSettings.classList.toggle('active', view === 'settings')
+
+  if (view === 'snippets') {
+    loadSnippetsToUI()
   }
 }
 
 tabHistory.onclick = () => switchTab('history')
+tabSnippets.onclick = () => switchTab('snippets')
 tabSettings.onclick = () => switchTab('settings')
 
 api.onSwitchView((view: string) => {
   if (view === 'settings') switchTab('settings')
+  else if (view === 'snippets') switchTab('snippets')
   else switchTab('history')
 })
 
@@ -538,6 +542,270 @@ if (btnCheckUpdate) {
       if (updateCheckStatus) updateCheckStatus.textContent = 'Güncelleme kontrolü başarısız oldu.'
     }
   }
+}
+
+// ── Metin Genişletici (Espanso Motoru) ──
+const globalPrefixSelect = document.getElementById('global-prefix-select') as HTMLSelectElement
+const toggleSnippetsGlobal = document.getElementById('toggle-snippets-global')!
+const snippetEditId = document.getElementById('snippet-edit-id') as HTMLInputElement
+const formCardHeading = document.getElementById('form-card-heading')!
+const liveTriggerPreview = document.getElementById('live-trigger-preview')!
+const snippetPrefix = document.getElementById('snippet-prefix') as HTMLSelectElement
+const snippetTrigger = document.getElementById('snippet-trigger') as HTMLInputElement
+const snippetTitle = document.getElementById('snippet-title') as HTMLInputElement
+const snippetReplacement = document.getElementById('snippet-replacement') as HTMLTextAreaElement
+const btnSaveSnippet = document.getElementById('btn-save-snippet')!
+const btnSaveSnippetText = document.getElementById('btn-save-snippet-text')!
+const btnCancelEditSnippet = document.getElementById('btn-cancel-edit-snippet')!
+const snippetSearch = document.getElementById('snippet-search') as HTMLInputElement
+const snippetsCount = document.getElementById('snippets-count')!
+const snippetsList = document.getElementById('snippets-list')!
+const snippetTestInput = document.getElementById('snippet-test-input') as HTMLTextAreaElement
+const btnClearTestBox = document.getElementById('btn-clear-test-box')!
+
+let snippetsConfig: any = { enabled: true, defaultPrefix: ':', snippets: [] }
+
+function updateLiveTriggerPreview() {
+  const p = (snippetPrefix.value || ':').trim()
+  const t = (snippetTrigger.value || '').trim().replace(/^[:;/!.,#@]/, '')
+  liveTriggerPreview.textContent = `${p}${t || 'ornek'}`
+}
+
+snippetPrefix.addEventListener('change', updateLiveTriggerPreview)
+snippetTrigger.addEventListener('input', updateLiveTriggerPreview)
+
+function resetSnippetForm() {
+  snippetEditId.value = ''
+  formCardHeading.textContent = '➕ Yeni Kısayol Ekle'
+  btnSaveSnippetText.textContent = 'Kısayolu Kaydet'
+  btnCancelEditSnippet.style.display = 'none'
+  snippetPrefix.value = snippetsConfig.defaultPrefix || ':'
+  snippetTrigger.value = ''
+  snippetTitle.value = ''
+  snippetReplacement.value = ''
+  updateLiveTriggerPreview()
+}
+
+btnCancelEditSnippet.onclick = resetSnippetForm
+
+async function loadSnippetsToUI() {
+  try {
+    snippetsConfig = await api.getSnippetsConfig()
+    if (!snippetsConfig) return
+
+    // Update global controls
+    if (globalPrefixSelect) {
+      globalPrefixSelect.value = snippetsConfig.defaultPrefix || ':'
+    }
+    if (snippetPrefix && !snippetEditId.value) {
+      snippetPrefix.value = snippetsConfig.defaultPrefix || ':'
+    }
+
+    updateSnippetsGlobalToggleUI(snippetsConfig.enabled)
+    renderSnippetsList()
+    updateLiveTriggerPreview()
+  } catch (err) {
+    console.error('Failed to load snippets:', err)
+  }
+}
+
+function updateSnippetsGlobalToggleUI(enabled: boolean) {
+  if (enabled) {
+    toggleSnippetsGlobal.className = 'btn btn-toggle-active'
+    toggleSnippetsGlobal.innerHTML = '<span>⚡ Genişletici: Aktif</span>'
+  } else {
+    toggleSnippetsGlobal.className = 'btn'
+    toggleSnippetsGlobal.innerHTML = '<span>⚡ Genişletici: Pasif</span>'
+  }
+}
+
+toggleSnippetsGlobal.onclick = async () => {
+  const next = !snippetsConfig.enabled
+  const res = await api.setSnippetsGlobalEnabled(next)
+  snippetsConfig.enabled = res
+  updateSnippetsGlobalToggleUI(res)
+  showToast(res ? 'Metin Genişletici aktif edildi.' : 'Metin Genişletici duraklatıldı.', res ? 'success' : 'info')
+}
+
+globalPrefixSelect.onchange = async () => {
+  const newP = globalPrefixSelect.value
+  await api.setSnippetsDefaultPrefix(newP)
+  snippetsConfig.defaultPrefix = newP
+  if (!snippetEditId.value) {
+    snippetPrefix.value = newP
+    updateLiveTriggerPreview()
+  }
+  showToast(`Varsayılan tetikleyici işareti '${newP}' olarak ayarlandı.`, 'info')
+}
+
+btnSaveSnippet.onclick = async () => {
+  const trigger = snippetTrigger.value.trim().replace(/^[:;/!.,#@]/, '')
+  const replacement = snippetReplacement.value.trim()
+
+  if (!trigger) {
+    showToast('Lütfen bir tetikleyici kelime girin (örn: adres).', 'warning')
+    snippetTrigger.focus()
+    return
+  }
+  if (!replacement) {
+    showToast('Lütfen genişletilecek metni girin.', 'warning')
+    snippetReplacement.focus()
+    return
+  }
+
+  const prefix = snippetPrefix.value || ':'
+  const title = snippetTitle.value.trim() || trigger
+  const id = snippetEditId.value || undefined
+
+  try {
+    await api.saveSnippet({ id, prefix, trigger, title, replacement })
+    showToast(`"${prefix}${trigger}" kısayolu başarıyla kaydedildi!`, 'success')
+    resetSnippetForm()
+    await loadSnippetsToUI()
+  } catch (err: any) {
+    console.error('Save snippet error:', err)
+    showToast('Kısayol kaydedilirken hata oluştu.', 'error')
+  }
+}
+
+function renderSnippetsList() {
+  const query = (snippetSearch.value || '').toLowerCase().trim()
+  const list = (snippetsConfig.snippets || []).filter((s: any) => {
+    if (!query) return true
+    const fullTrig = ((s.prefix || '') + s.trigger).toLowerCase()
+    const title = (s.title || '').toLowerCase()
+    const rep = (s.replacement || '').toLowerCase()
+    return fullTrig.includes(query) || title.includes(query) || rep.includes(query)
+  })
+
+  snippetsCount.textContent = `${list.length} Kısayol`
+
+  if (list.length === 0) {
+    snippetsList.innerHTML = `
+      <div style="padding: 30px; text-align: center; color: var(--text-secondary); background: var(--surface-card); border-radius: 12px; border: 1px dashed var(--border-subtle);">
+        <div style="font-size: 1.5rem; margin-bottom: 8px;">⚡</div>
+        <div style="font-weight: 600;">Eşleşen Kısayol Bulunamadı</div>
+        <div style="font-size: 0.8rem; margin-top: 4px;">Soldaki formdan hemen yeni bir metin kısayolu ekleyebilirsiniz.</div>
+      </div>
+    `
+    return
+  }
+
+  snippetsList.innerHTML = list.map((s: any) => {
+    const fullTrig = (s.prefix || ':') + s.trigger
+    const isOff = s.enabled === false
+    return `
+      <div class="snippet-item-card ${isOff ? 'disabled' : ''}" data-id="${s.id}">
+        <div class="snippet-item-header">
+          <div class="snippet-item-left">
+            <span class="snippet-preview-pill">${fullTrig}</span>
+            <strong style="color: var(--text-primary); font-size: 0.95rem;">${escapeHtml(s.title || s.trigger)}</strong>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label class="toggle-switch" title="${isOff ? 'Aktif Et' : 'Devre Dışı Bırak'}">
+              <input type="checkbox" class="snippet-toggle-btn" data-id="${s.id}" ${!isOff ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="snippet-item-text">${escapeHtml(s.replacement)}</div>
+
+        <div class="snippet-item-actions">
+          <button type="button" class="btn btn-copy-snip" data-id="${s.id}" style="padding: 4px 10px; font-size: 0.8rem;">
+            📋 Kopyala
+          </button>
+          <button type="button" class="btn btn-edit-snip" data-id="${s.id}" style="padding: 4px 10px; font-size: 0.8rem;">
+            ✏️ Düzenle
+          </button>
+          <button type="button" class="btn btn-danger btn-del-snip" data-id="${s.id}" style="padding: 4px 8px; font-size: 0.8rem;" title="Sil">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `
+  }).join('')
+
+  // Wire buttons
+  snippetsList.querySelectorAll('.snippet-toggle-btn').forEach((elem: any) => {
+    elem.onchange = async () => {
+      const id = elem.dataset.id
+      const res = await api.toggleSnippet(id, elem.checked)
+      const parentCard = elem.closest('.snippet-item-card')
+      if (parentCard) parentCard.classList.toggle('disabled', !res)
+      showToast(res ? 'Kısayol aktif edildi.' : 'Kısayol pasifleştirildi.', 'info')
+    }
+  })
+
+  snippetsList.querySelectorAll('.btn-copy-snip').forEach((btn: any) => {
+    btn.onclick = () => {
+      const id = btn.dataset.id
+      const item = snippetsConfig.snippets.find((s: any) => s.id === id)
+      if (item) {
+        navigator.clipboard.writeText(item.replacement)
+        const oldText = btn.innerHTML
+        btn.innerHTML = '✓ Kopyalandı'
+        setTimeout(() => { btn.innerHTML = oldText }, 1200)
+      }
+    }
+  })
+
+  snippetsList.querySelectorAll('.btn-edit-snip').forEach((btn: any) => {
+    btn.onclick = () => {
+      const id = btn.dataset.id
+      const item = snippetsConfig.snippets.find((s: any) => s.id === id)
+      if (item) {
+        snippetEditId.value = item.id
+        snippetPrefix.value = item.prefix || ':'
+        snippetTrigger.value = item.trigger
+        snippetTitle.value = item.title || ''
+        snippetReplacement.value = item.replacement
+        formCardHeading.textContent = '✏️ Kısayolu Düzenle'
+        btnSaveSnippetText.textContent = 'Değişiklikleri Güncelle'
+        btnCancelEditSnippet.style.display = 'inline-flex'
+        updateLiveTriggerPreview()
+        snippetTrigger.focus()
+      }
+    }
+  })
+
+  snippetsList.querySelectorAll('.btn-del-snip').forEach((btn: any) => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id
+      const item = snippetsConfig.snippets.find((s: any) => s.id === id)
+      if (!item) return
+      const fullTrig = (item.prefix || ':') + item.trigger
+      const confirmed = await showConfirm(
+        'Kısayolu Sil',
+        `"${fullTrig}" (${item.title || item.trigger}) kısayolunu silmek istediğinize emin misiniz?`
+      )
+      if (confirmed) {
+        await api.deleteSnippet(id)
+        if (snippetEditId.value === id) resetSnippetForm()
+        await loadSnippetsToUI()
+        showToast('Kısayol silindi.', 'info')
+      }
+    }
+  })
+}
+
+snippetSearch.addEventListener('input', () => {
+  renderSnippetsList()
+})
+
+btnClearTestBox.onclick = () => {
+  snippetTestInput.value = ''
+  snippetTestInput.focus()
+}
+
+function escapeHtml(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 // ── Init ──

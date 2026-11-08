@@ -103,5 +103,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onUpdateDownloaded: (callback: any) =>
         ipcRenderer.on('update-downloaded', () => callback()),
     startUpdateDownload: () => ipcRenderer.send('start-update-download'),
-    installUpdate: () => ipcRenderer.send('install-update')
+    installUpdate: () => ipcRenderer.send('install-update'),
+
+    // Text Expander (Espanso-like Snippets)
+    getSnippetsConfig: () => safeInvoke('get-snippets-config'),
+    saveSnippet: (snippet: any) => safeInvoke('save-snippet', snippet),
+    deleteSnippet: (id: string) => safeInvoke('delete-snippet', id),
+    toggleSnippet: (id: string, enabled?: boolean) => safeInvoke('toggle-snippet', id, enabled),
+    setSnippetsGlobalEnabled: (enabled: boolean) => safeInvoke('set-snippets-global-enabled', enabled),
+    setSnippetsDefaultPrefix: (prefix: string) => safeInvoke('set-snippets-default-prefix', prefix)
 })

@@ -682,6 +682,278 @@
       justify-content: flex-end;
       gap: 10px;
     }
+
+    /* ─── Snippets (Text Expander) Layout ─── */
+    .snippets-container {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      width: 100%;
+    }
+
+    .snippets-hero-banner {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .snippets-hero-info {
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .snippets-hero-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .snippets-hero-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .snippets-hero-controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .prefix-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    .prefix-select {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--accent-cyan);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .snippets-grid-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 950px) {
+      .snippets-grid-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .snippet-form-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .snippet-card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .snippet-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .snippet-input-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .snippet-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .snippet-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 0.88rem;
+      outline: none;
+      transition: border 0.15s;
+    }
+
+    .snippet-input:focus {
+      border-color: var(--accent-cyan);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .snippet-textarea {
+      width: 100%;
+      min-height: 95px;
+      max-height: 200px;
+      resize: vertical;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 0.88rem;
+      font-family: inherit;
+      outline: none;
+      line-height: 1.45;
+    }
+
+    .snippet-textarea:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .snippet-preview-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--recci-emerald);
+      background: var(--recci-bg);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .snippets-list-col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .snippets-search-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .snippet-items-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: calc(100vh - 290px);
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .snippet-item-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.15s;
+    }
+
+    .snippet-item-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .snippet-item-card.disabled {
+      opacity: 0.55;
+    }
+
+    .snippet-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .snippet-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .snippet-item-text {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+      font-family: inherit;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .snippet-item-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .test-box-card {
+      background: rgba(56, 189, 248, 0.04);
+      border: 1px dashed rgba(56, 189, 248, 0.3);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .test-box-input {
+      width: 100%;
+      height: 60px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 8px;
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      outline: none;
+      resize: none;
+    }
   </style>
 </head>
 
@@ -710,6 +982,10 @@
       <button class="tab-btn active" data-view="history" id="tab-history">
         <span>🕒</span>
         <span>Sorgu Geçmişi</span>
+      </button>
+      <button class="tab-btn" data-view="snippets" id="tab-snippets">
+        <span>⚡</span>
+        <span>Metin Genişletici</span>
       </button>
       <button class="tab-btn" data-view="settings" id="tab-settings">
         <span>⚙️</span>
@@ -887,6 +1163,121 @@
               <button id="btn-check-update" class="btn" style="border-color: var(--accent-cyan); color: var(--accent-cyan);">
                 🔍 Kontrol Et
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- View 3: Text Expander (Espanso) -->
+    <section id="view-snippets" class="view-section">
+      <div class="snippets-container">
+        <!-- Hero Banner -->
+        <div class="snippets-hero-banner">
+          <div class="snippets-hero-info">
+            <div class="snippets-hero-title">
+              <span>⚡</span>
+              <span>Otomatik Metin Genişletici (Espanso Motoru)</span>
+            </div>
+            <div class="snippets-hero-desc">
+              Herhangi bir programda (Chrome, Excel, WhatsApp, Word vb.) belirlediğiniz noktalama işareti ve kelimeyi yazdığınızda sistem kelimeyi silip otomatik olarak uzun metne dönüştürür.
+            </div>
+          </div>
+          <div class="snippets-hero-controls">
+            <div class="prefix-picker-wrap" title="Tüm kısayollarda kullanılacak varsayılan noktalama işareti">
+              <span>Varsayılan İşaret:</span>
+              <select id="global-prefix-select" class="prefix-select">
+                <option value=":">:</option>
+                <option value=";">;</option>
+                <option value="/">/</option>
+                <option value="!">!</option>
+                <option value=".">.</option>
+                <option value=",">,</option>
+                <option value="#">#</option>
+                <option value="@">@</option>
+              </select>
+            </div>
+            <button id="toggle-snippets-global" class="btn btn-toggle-active" title="Metin genişletici servisini aç / kapat">
+              <span>⚡ Genişletici: Aktif</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2-Column Grid -->
+        <div class="snippets-grid-layout">
+          <!-- Left: Form & Test Box -->
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="snippet-form-card">
+              <div class="snippet-card-title">
+                <span id="form-card-heading">➕ Yeni Kısayol Ekle</span>
+                <span id="live-trigger-preview" class="snippet-preview-pill">:ornek</span>
+              </div>
+
+              <input type="hidden" id="snippet-edit-id" value="">
+
+              <div class="snippet-input-row">
+                <div class="snippet-input-group" style="width: 105px;">
+                  <label class="snippet-input-label">Noktalama</label>
+                  <select id="snippet-prefix" class="snippet-input prefix-select" style="padding: 8px 10px;">
+                    <option value=":">:</option>
+                    <option value=";">;</option>
+                    <option value="/">/</option>
+                    <option value="!">!</option>
+                    <option value=".">.</option>
+                    <option value=",">,</option>
+                    <option value="#">#</option>
+                    <option value="@">@</option>
+                  </select>
+                </div>
+                <div class="snippet-input-group" style="flex:1;">
+                  <label class="snippet-input-label">Tetikleyici Kelime</label>
+                  <input type="text" id="snippet-trigger" class="snippet-input" placeholder="örn: adres, kargo, garanti" autocomplete="off">
+                </div>
+              </div>
+
+              <div class="snippet-input-group">
+                <label class="snippet-input-label">Başlık / Açıklama (Opsiyonel)</label>
+                <input type="text" id="snippet-title" class="snippet-input" placeholder="örn: Recci Servis Adresi">
+              </div>
+
+              <div class="snippet-input-group">
+                <label class="snippet-input-label">Genişletilecek Metin</label>
+                <textarea id="snippet-replacement" class="snippet-textarea" placeholder="Otomatik yazılmasını istediğiniz metni buraya girin (satır sonları korunur)..."></textarea>
+              </div>
+
+              <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px;">
+                <button type="button" id="btn-cancel-edit-snippet" class="btn" style="display:none;">Vazgeç</button>
+                <button type="button" id="btn-save-snippet" class="btn" style="background: var(--recci-emerald); color:#fff; border-color:var(--recci-emerald);">
+                  <span>💾</span>
+                  <span id="btn-save-snippet-text">Kısayolu Kaydet</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Canlı Test Kutusu -->
+            <div class="test-box-card">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-weight:700; font-size:0.88rem; color:var(--accent-cyan);">🧪 Canlı Test Alanı</span>
+                <button type="button" id="btn-clear-test-box" class="card-delete-btn" title="Temizle" style="font-size:11px;">Temizle</button>
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-secondary);">
+                Aşağıdaki kutuya tıklayıp tanımladığınız kısayolu (örn: <strong style="color:#fff;">:adres</strong>) yazın, anında genişlesin:
+              </div>
+              <textarea id="snippet-test-input" class="test-box-input" placeholder="Burada deneyin..."></textarea>
+            </div>
+          </div>
+
+          <!-- Right: Snippets List -->
+          <div class="snippets-list-col">
+            <div class="snippets-search-bar">
+              <div class="search-box" style="min-width:200px;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="snippet-search" class="search-input" placeholder="Kısayol kelime veya metin ara...">
+              </div>
+              <span id="snippets-count" class="meta-stat">Yükleniyor...</span>
+            </div>
+
+            <div id="snippets-list" class="snippet-items-container">
+              <!-- Dynamically populated -->
             </div>
           </div>
         </div>

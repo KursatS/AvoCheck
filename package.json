@@ -58,7 +58,8 @@
       "out/**/*",
       "assets/logo.png",
       "assets/logo256.ico",
-      "assets/logo512.png"
+      "assets/logo512.png",
+      "resources/**/*"
     ],
     "icon": "assets/logo256.ico",
     "nsis": {

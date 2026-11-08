@@ -25,6 +25,7 @@ import {
 import { WindowManager } from './windowManager';
 import { loadSettings, saveSettings, AppSettings } from './settingsManager';
 import { ClipboardMonitor } from './clipboardMonitor';
+import { TextExpanderManager } from './textExpanderManager';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { autoUpdater } from 'electron-updater';
@@ -294,6 +295,31 @@ function setupIpcHandlers() {
   ipcMain.handle('get-priority-devices', async () => []);
   ipcMain.handle('get-users', async () => []);
   ipcMain.handle('logout', async () => true);
+
+  // Text Expander (Espanso-like Snippets) IPC Handlers
+  ipcMain.handle('get-snippets-config', async () => {
+    return TextExpanderManager.getInstance().getConfig();
+  });
+
+  ipcMain.handle('save-snippet', async (_, snippet) => {
+    return TextExpanderManager.getInstance().saveSnippet(snippet);
+  });
+
+  ipcMain.handle('delete-snippet', async (_, id) => {
+    return TextExpanderManager.getInstance().deleteSnippet(id);
+  });
+
+  ipcMain.handle('toggle-snippet', async (_, id, enabled) => {
+    return TextExpanderManager.getInstance().toggleSnippet(id, enabled);
+  });
+
+  ipcMain.handle('set-snippets-global-enabled', async (_, enabled) => {
+    return TextExpanderManager.getInstance().setGlobalEnabled(enabled);
+  });
+
+  ipcMain.handle('set-snippets-default-prefix', async (_, prefix) => {
+    return TextExpanderManager.getInstance().setDefaultPrefix(prefix);
+  });
 }
 
 function registerShortcuts() {
@@ -409,6 +435,7 @@ function initializeApp() {
     createTray();
     startServerStatusMonitor();
     registerShortcuts();
+    TextExpanderManager.getInstance().start();
 
     app.setLoginItemSettings({
       openAtLogin: currentSettings.autoStartEnabled,
@@ -470,6 +497,7 @@ app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   clipboardMonitor?.stop();
+  TextExpanderManager.getInstance().stop();
   globalShortcut.unregisterAll();
   if (statusInterval) clearInterval(statusInterval);
 });

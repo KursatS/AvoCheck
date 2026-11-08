@@ -39,20 +39,17 @@
     }
 
     html, body {
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       margin: 0;
       padding: 0;
       background: transparent !important;
       overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
     }
 
     .popup-container {
-      width: var(--width);
-      height: var(--height);
+      width: 100%;
+      height: 100%;
       background: var(--grad-none);
       border-radius: var(--radius);
       position: relative;
@@ -61,35 +58,32 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 28px 24px;
-      /* Inset specular highlight removes need for border, eliminating DWM gray corner fringe */
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+      padding: 24px 20px;
+      /* Zero outer box-shadow: completely prevents Windows DWM black haze and rectangular blur */
+      box-shadow: inset 0 1px 1.5px rgba(255, 255, 255, 0.45);
       border: none;
       outline: none;
       overflow: hidden;
       opacity: 0;
-      transform: scale(0.65) translateY(35px);
+      transform: scale(0.86) translateY(20px);
       transform-origin: bottom center;
       will-change: transform, opacity;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Spring-loaded Pop Entrance */
+    /* Spring-loaded Pop Entrance without scale overflow */
     .animate-pop {
-      animation: springPop 0.44s cubic-bezier(0.16, 1.25, 0.3, 1) forwards;
+      animation: springPop 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
     @keyframes springPop {
       0% {
         opacity: 0;
-        transform: scale(0.65) translateY(40px);
+        transform: scale(0.86) translateY(24px);
       }
-      65% {
+      70% {
         opacity: 1;
-        transform: scale(1.035) translateY(-5px);
-      }
-      85% {
-        transform: scale(0.985) translateY(2px);
+        transform: scale(1.0) translateY(-2px);
       }
       100% {
         opacity: 1;
@@ -99,7 +93,7 @@
 
     /* Snappy Exit */
     .pop-out {
-      animation: popOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+      animation: popOut 0.16s cubic-bezier(0.4, 0, 1, 1) forwards !important;
     }
 
     @keyframes popOut {
@@ -109,7 +103,7 @@
       }
       100% {
         opacity: 0;
-        transform: scale(0.7) translateY(20px);
+        transform: scale(0.82) translateY(16px);
       }
     }
 

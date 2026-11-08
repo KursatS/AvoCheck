@@ -56,17 +56,16 @@ export class WindowManager {
     private getPopupBounds(sizeLevel: number, kind: PopupKind) {
         const size = POPUP_SIZE_LEVELS.find(l => l.level === sizeLevel) || POPUP_SIZE_LEVELS[2];
         const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-        // 40px buffer (20px margin around) prevents Windows DWM corner clipping and gray artifact fringe
-        const winWidth = size.width + 40;
-        const winHeight = size.height + 40;
-        const baseX = width - winWidth - 10;
-        const baseY = height - winHeight - 30;
+        const winWidth = size.width;
+        const winHeight = size.height;
+        const baseX = width - winWidth - 20;
+        const baseY = height - winHeight - 40;
         return {
             size,
             winWidth,
             winHeight,
             x: baseX,
-            y: kind === 'priority' ? Math.max(10, baseY - winHeight - 10) : baseY
+            y: kind === 'priority' ? Math.max(10, baseY - winHeight - 15) : baseY
         };
     }
 
