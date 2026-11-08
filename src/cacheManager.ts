@@ -110,13 +110,6 @@ export function isCacheEntryStale(entry: Pick<CacheEntry, 'copy_date'> | null | 
 export function saveToCache(serial: string, info: any): Promise<void> {
   if (!db) return Promise.resolve();
   try {
-    // Override warranty status for RCCVBY and RCFVBY prefixes if out of warranty
-    if ((serial.startsWith('RCCVBY') || serial.startsWith('RCFVBY')) && info.warranty_status === 'GARANTI KAPSAMI DISINDA') {
-      info.warranty_status = 'RECCI GARANTILI';
-      info.model_name = 'cihaz \u00fczerinden \u00f6\u011freniniz';
-      info.model_color = 'cihaz \u00fczerinden \u00f6\u011freniniz';
-    }
-
     const entry: CacheEntry = {
       serial,
       model_name: info.model_name || '',
