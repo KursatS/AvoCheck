@@ -48,9 +48,9 @@ AvoCheck, servis ihtiyaçlarına göre iki ayrı mimaride sunulmaktadır:
 | ![Ana Panel](assets/screenshots/home.png) | ![Açılış Ekranı](assets/screenshots/splash.png) |
 
 ### 🔔 Akıllı Durum Bildirimleri (Popups)
-| 🟢 Recci Garantili | 🟡 Süresi Dolmuş (Fatura Kontrol) |
+| 🟢 Recci Garantili (`RCFVCY52503951`) | ⚪ Garanti Dışı (`R28EBR33716309`) |
 | :---: | :---: |
-| ![Recci Garantili](assets/screenshots/inwarrantypopup.png) | ![Fatura Kontrol](assets/screenshots/outofwarrantypopup.png) |
+| ![Recci Garantili](assets/screenshots/inwarrantypopup.png) | ![Garanti Dışı](assets/screenshots/outofwarrantypopup.png) |
 
 ---
 
