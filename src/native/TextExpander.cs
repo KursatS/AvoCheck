@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading;
@@ -31,6 +32,10 @@ namespace RecciTekTextExpander
         private static bool _globalEnabled = true;
         private static StringBuilder _rollingBuffer = new StringBuilder();
         private static bool _isExpanding = false;
+
+        private static TextReader _stdinReader;
+        private static TextWriter _stdoutWriter;
+        private static TextWriter _stderrWriter;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
@@ -72,27 +77,101 @@ namespace RecciTekTextExpander
         [STAThread]
         static void Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.UTF8;
-            Console.InputEncoding = Encoding.UTF8;
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                WriteError("Unhandled: " + (e.ExceptionObject != null ? e.ExceptionObject.ToString() : "Unknown"));
+            };
+
+            // Safely initialize stream readers/writers without crashing on invalid console handles
+            try
+            {
+                _stdinReader = new StreamReader(Console.OpenStandardInput(), Encoding.UTF8);
+            }
+            catch
+            {
+                _stdinReader = Console.In;
+            }
+
+            try
+            {
+                _stdoutWriter = new StreamWriter(Console.OpenStandardOutput(), Encoding.UTF8) { AutoFlush = true };
+            }
+            catch
+            {
+                _stdoutWriter = Console.Out;
+            }
+
+            try
+            {
+                _stderrWriter = new StreamWriter(Console.OpenStandardError(), Encoding.UTF8) { AutoFlush = true };
+            }
+            catch
+            {
+                _stderrWriter = Console.Error;
+            }
+
+            try
+            {
+                Console.OutputEncoding = Encoding.UTF8;
+                Console.InputEncoding = Encoding.UTF8;
+            }
+            catch { }
 
             Thread stdinThread = new Thread(ReadStdinLoop);
             stdinThread.IsBackground = true;
             stdinThread.Start();
 
             _hookID = SetHook(_proc);
-            Console.WriteLine("{\"status\":\"READY\"}");
+            WriteLine("{\"status\":\"READY\"}");
 
             Application.Run();
 
-            UnhookWindowsHookEx(_hookID);
+            if (_hookID != IntPtr.Zero)
+            {
+                UnhookWindowsHookEx(_hookID);
+            }
+        }
+
+        private static void WriteLine(string msg)
+        {
+            try
+            {
+                if (_stdoutWriter != null)
+                {
+                    _stdoutWriter.WriteLine(msg);
+                    _stdoutWriter.Flush();
+                }
+            }
+            catch { }
+        }
+
+        private static void WriteError(string msg)
+        {
+            try
+            {
+                if (_stderrWriter != null)
+                {
+                    _stderrWriter.WriteLine(msg);
+                    _stderrWriter.Flush();
+                }
+            }
+            catch { }
         }
 
         private static IntPtr SetHook(LowLevelKeyboardProc proc)
         {
-            using (var curProcess = System.Diagnostics.Process.GetCurrentProcess())
-            using (var curModule = curProcess.MainModule)
+            try
             {
-                return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+                using (var curProcess = Process.GetCurrentProcess())
+                using (var curModule = curProcess.MainModule)
+                {
+                    return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteError("SetHook error: " + ex.Message);
+                return IntPtr.Zero;
             }
         }
 
@@ -101,7 +180,7 @@ namespace RecciTekTextExpander
             try
             {
                 string line;
-                while ((line = Console.ReadLine()) != null)
+                while (_stdinReader != null && (line = _stdinReader.ReadLine()) != null)
                 {
                     line = line.Trim();
                     if (string.IsNullOrEmpty(line)) continue;
@@ -117,7 +196,7 @@ namespace RecciTekTextExpander
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("Stdin error: " + ex.Message);
+                WriteError("Stdin error: " + ex.Message);
             }
         }
 
@@ -168,11 +247,11 @@ namespace RecciTekTextExpander
                         }
                     }
                     _snippets = newSnippets;
-                    Console.WriteLine("{\"status\":\"CONFIG_APPLIED\",\"count\":" + _snippets.Count + "}");
+                    WriteLine("{\"status\":\"CONFIG_APPLIED\",\"count\":" + _snippets.Count + "}");
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine("Parse error: " + ex.Message);
+                    WriteError("Parse error: " + ex.Message);
                 }
             }
         }
@@ -301,13 +380,15 @@ namespace RecciTekTextExpander
             {
                 try
                 {
+                    // 1. Send Backspaces to remove typed trigger word
                     for (int i = 0; i < backspaceCount; i++)
                     {
                         keybd_event(VK_BACK, 0, 0, UIntPtr.Zero);
                         keybd_event(VK_BACK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                        Thread.Sleep(8);
+                        Thread.Sleep(6);
                     }
 
+                    // 2. Set Clipboard Text
                     Thread.Sleep(15);
                     for (int retry = 0; retry < 6; retry++)
                     {
@@ -318,10 +399,11 @@ namespace RecciTekTextExpander
                         }
                         catch
                         {
-                            Thread.Sleep(25);
+                            Thread.Sleep(20);
                         }
                     }
 
+                    // 3. Send Ctrl+V
                     Thread.Sleep(20);
                     keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
                     keybd_event(VK_V, 0, 0, UIntPtr.Zero);
@@ -329,11 +411,11 @@ namespace RecciTekTextExpander
                     keybd_event(VK_V, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
                     keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
 
-                    Console.WriteLine("{\"event\":\"EXPANDED\",\"trigger\":\"" + triggerName + "\"}");
+                    WriteLine("{\"event\":\"EXPANDED\",\"trigger\":\"" + triggerName + "\"}");
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine("Expand error: " + ex.Message);
+                    WriteError("Expand error: " + ex.Message);
                 }
                 finally
                 {

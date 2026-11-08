@@ -25,6 +25,8 @@ export class TextExpanderManager {
     private configPath: string;
     private process: ChildProcess | null = null;
     private isStopping = false;
+    private restartCount = 0;
+    private healthyTimer: NodeJS.Timeout | null = null;
 
     private constructor() {
         const docDir = path.join(app.getPath('documents'), 'RecciTek');
@@ -170,12 +172,27 @@ export class TextExpanderManager {
                 console.error('[TextExpander Error]:', data.toString().trim());
             });
 
+            // Process survived for 5 seconds -> reset restart count
+            if (this.healthyTimer) clearTimeout(this.healthyTimer);
+            this.healthyTimer = setTimeout(() => {
+                this.restartCount = 0;
+            }, 5000);
+
             this.process.on('close', (code) => {
                 console.log('[TextExpander] Process exited with code:', code);
                 this.process = null;
-                // Auto restart if closed unexpectedly
+                if (this.healthyTimer) clearTimeout(this.healthyTimer);
+
+                // Auto restart if closed unexpectedly with circuit breaker
                 if (!this.isStopping && this.config.enabled) {
-                    setTimeout(() => this.start(), 2000);
+                    this.restartCount++;
+                    if (this.restartCount <= 4) {
+                        const delay = Math.min(1000 * this.restartCount, 5000);
+                        console.log(`[TextExpander] Restarting in ${delay}ms (attempt ${this.restartCount}/4)...`);
+                        setTimeout(() => this.start(), delay);
+                    } else {
+                        console.warn('[TextExpander] Too many restart attempts. Background hook paused to avoid loop.');
+                    }
                 }
             });
 
