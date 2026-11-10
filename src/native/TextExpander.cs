@@ -81,6 +81,21 @@ namespace RecciTekTextExpander
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GlobalFree(IntPtr hMem);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern UIntPtr GlobalSize(IntPtr hMem);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint EnumClipboardFormats(uint format);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr GetClipboardData(uint uFormat);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern uint RegisterClipboardFormat(string lpszFormat);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetClipboardSequenceNumber();
+
         [DllImport("user32.dll")]
         private static extern int ToUnicode(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pwszBuff, int cchBuff, uint wFlags);
 
@@ -450,54 +465,176 @@ namespace RecciTekTextExpander
             return null;
         }
 
-        private static bool FastSetClipboard(string text)
-        {
-            if (text == null) text = "";
+        // ---------------------------------------------------------------
+        // Clipboard snapshot / restore
+        // The expansion pastes through the clipboard, so we save whatever
+        // the user had copied and put it back once the paste is done.
+        // ---------------------------------------------------------------
 
-            // Retry briefly up to 5 times (2ms apart) in case another app temporarily holds clipboard
-            for (int retry = 0; retry < 5; retry++)
+        // How long to wait after Ctrl+V before restoring (target app must read the clipboard first)
+        private const int RESTORE_DELAY_MS = 300;
+        // Skip snapshot entirely for very large clipboards (e.g. huge Excel ranges)
+        private const long MAX_SNAPSHOT_BYTES = 32L * 1024 * 1024;
+
+        // Standard markers: clipboard monitors (incl. AvoCheck's own) and Win+V history ignore marked content
+        private static readonly uint CF_EXCLUDE_MONITOR = RegisterClipboardFormat("ExcludeClipboardContentFromMonitorProcessing");
+        private static readonly uint CF_HISTORY = RegisterClipboardFormat("CanIncludeInClipboardHistory");
+        private static readonly uint CF_CLOUD = RegisterClipboardFormat("CanUploadToCloudClipboard");
+
+        private sealed class ClipboardSnapshot
+        {
+            public readonly List<KeyValuePair<uint, byte[]>> Items = new List<KeyValuePair<uint, byte[]>>();
+        }
+
+        private static readonly object _restoreLock = new object();
+        private static ClipboardSnapshot _pendingSnapshot = null;
+        private static int _restoreGeneration = 0;
+
+        private static bool OpenClipboardWithRetry()
+        {
+            // Another app may hold the clipboard for a moment
+            for (int retry = 0; retry < 10; retry++)
             {
-                if (OpenClipboard(IntPtr.Zero))
+                if (OpenClipboard(IntPtr.Zero)) return true;
+                Thread.Sleep(3);
+            }
+            return false;
+        }
+
+        // Only formats whose handle is a plain HGLOBAL can be copied byte-for-byte.
+        // GDI handles (bitmap, palette, metafiles) and private formats are skipped;
+        // images still survive because Windows re-synthesizes CF_BITMAP from CF_DIB.
+        private static bool IsCopyableFormat(uint fmt)
+        {
+            if (fmt == 2 || fmt == 3 || fmt == 9 || fmt == 14) return false;      // BITMAP, METAFILEPICT, PALETTE, ENHMETAFILE
+            if (fmt == 0x80 || fmt == 0x82 || fmt == 0x83 || fmt == 0x8E) return false; // OWNERDISPLAY, DSP* formats
+            if (fmt >= 0x0200 && fmt <= 0x03FF) return false;                    // PRIVATEFIRST..GDIOBJLAST
+            if (fmt == CF_EXCLUDE_MONITOR || fmt == CF_HISTORY || fmt == CF_CLOUD) return false;
+            return true;
+        }
+
+        private static ClipboardSnapshot SnapshotClipboard()
+        {
+            if (!OpenClipboardWithRetry()) return null;
+            try
+            {
+                var snap = new ClipboardSnapshot();
+                long total = 0;
+                uint fmt = 0;
+                while ((fmt = EnumClipboardFormats(fmt)) != 0)
                 {
+                    if (!IsCopyableFormat(fmt)) continue;
+
+                    IntPtr h = GetClipboardData(fmt);
+                    if (h == IntPtr.Zero) continue;
+
+                    long size = (long)GlobalSize(h).ToUInt64();
+                    if (size <= 0) continue;
+
+                    total += size;
+                    if (total > MAX_SNAPSHOT_BYTES)
+                    {
+                        WriteError("Clipboard too large to snapshot; it will not be restored.");
+                        return null;
+                    }
+
+                    IntPtr p = GlobalLock(h);
+                    if (p == IntPtr.Zero) continue;
                     try
                     {
-                        EmptyClipboard();
-
-                        // UTF-16 null-terminated bytes
-                        byte[] bytes = Encoding.Unicode.GetBytes(text + "\0");
-                        IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)bytes.Length);
-                        if (hGlobal == IntPtr.Zero)
-                        {
-                            return false;
-                        }
-
-                        IntPtr target = GlobalLock(hGlobal);
-                        if (target == IntPtr.Zero)
-                        {
-                            GlobalFree(hGlobal);
-                            return false;
-                        }
-
-                        Marshal.Copy(bytes, 0, target, bytes.Length);
-                        GlobalUnlock(hGlobal);
-
-                        if (SetClipboardData(CF_UNICODETEXT, hGlobal) == IntPtr.Zero)
-                        {
-                            GlobalFree(hGlobal);
-                            return false;
-                        }
-
-                        // Windows clipboard now owns hGlobal
-                        return true;
+                        byte[] data = new byte[size];
+                        Marshal.Copy(p, data, 0, (int)size);
+                        snap.Items.Add(new KeyValuePair<uint, byte[]>(fmt, data));
                     }
                     finally
                     {
-                        CloseClipboard();
+                        GlobalUnlock(h);
                     }
                 }
-                Thread.Sleep(2);
+                return snap;
             }
-            return false;
+            catch (Exception ex)
+            {
+                WriteError("Snapshot error: " + ex.Message);
+                return null;
+            }
+            finally
+            {
+                CloseClipboard();
+            }
+        }
+
+        // Must be called while the clipboard is open. Windows takes ownership on success.
+        private static bool PutClipboardBytes(uint fmt, byte[] data)
+        {
+            IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)Math.Max(data.Length, 1));
+            if (hGlobal == IntPtr.Zero) return false;
+
+            IntPtr target = GlobalLock(hGlobal);
+            if (target == IntPtr.Zero)
+            {
+                GlobalFree(hGlobal);
+                return false;
+            }
+            if (data.Length > 0) Marshal.Copy(data, 0, target, data.Length);
+            GlobalUnlock(hGlobal);
+
+            if (SetClipboardData(fmt, hGlobal) == IntPtr.Zero)
+            {
+                GlobalFree(hGlobal);
+                return false;
+            }
+            return true;
+        }
+
+        // Must be called while the clipboard is open.
+        private static void PutIgnoreMarkers()
+        {
+            PutClipboardBytes(CF_EXCLUDE_MONITOR, BitConverter.GetBytes(1));
+            PutClipboardBytes(CF_HISTORY, BitConverter.GetBytes(0));
+            PutClipboardBytes(CF_CLOUD, BitConverter.GetBytes(0));
+        }
+
+        private static void RestoreClipboard(ClipboardSnapshot snap)
+        {
+            if (!OpenClipboardWithRetry()) return;
+            try
+            {
+                EmptyClipboard();
+                foreach (var item in snap.Items)
+                {
+                    PutClipboardBytes(item.Key, item.Value);
+                }
+                // Restored content was already seen by monitors/history; mark it so it isn't processed twice
+                PutIgnoreMarkers();
+            }
+            catch (Exception ex)
+            {
+                WriteError("Restore error: " + ex.Message);
+            }
+            finally
+            {
+                CloseClipboard();
+            }
+        }
+
+        private static bool FastSetClipboard(string text)
+        {
+            if (text == null) text = "";
+            if (!OpenClipboardWithRetry()) return false;
+            try
+            {
+                EmptyClipboard();
+                // UTF-16 null-terminated bytes
+                bool ok = PutClipboardBytes(CF_UNICODETEXT, Encoding.Unicode.GetBytes(text + "\0"));
+                // Snippet text is transient: keep it out of Win+V history and AvoCheck's serial monitor
+                PutIgnoreMarkers();
+                return ok;
+            }
+            finally
+            {
+                CloseClipboard();
+            }
         }
 
         private static void TriggerExpansion(int backspaceCount, string replacement, string triggerName)
@@ -505,8 +642,20 @@ namespace RecciTekTextExpander
             _isExpanding = true;
             Thread pasteThread = new Thread(() =>
             {
+                ClipboardSnapshot snapshot = null;
+                int generation = 0;
+                uint seqAfterSet = 0;
                 try
                 {
+                    // 0. Save what the user had copied. If a previous expansion is still waiting
+                    //    to restore, reuse its snapshot (the clipboard currently holds a snippet).
+                    lock (_restoreLock)
+                    {
+                        if (_pendingSnapshot == null) _pendingSnapshot = SnapshotClipboard();
+                        snapshot = _pendingSnapshot;
+                        generation = ++_restoreGeneration;
+                    }
+
                     // 1. Instantly set replacement text to Windows Clipboard via raw Win32 (< 1ms)
                     bool clipOk = FastSetClipboard(replacement);
                     if (!clipOk)
@@ -514,6 +663,7 @@ namespace RecciTekTextExpander
                         // Fallback to WinForms Clipboard if Win32 lock failed
                         try { Clipboard.SetDataObject(replacement, true); } catch { }
                     }
+                    seqAfterSet = GetClipboardSequenceNumber();
 
                     // 2. Batch Send Backspaces atomically via SendInput (0ms latency, zero visible deletion)
                     if (backspaceCount > 0)
@@ -601,6 +751,28 @@ namespace RecciTekTextExpander
                 {
                     Thread.Sleep(15);
                     _isExpanding = false;
+                }
+
+                // 4. Put the user's original clipboard back once the target app has pasted
+                try
+                {
+                    Thread.Sleep(RESTORE_DELAY_MS);
+                    lock (_restoreLock)
+                    {
+                        // A newer expansion started meanwhile; it owns the restore
+                        if (generation != _restoreGeneration) return;
+                        _pendingSnapshot = null;
+                    }
+
+                    // Only restore if nobody (user or another app) changed the clipboard since our paste
+                    if (snapshot != null && GetClipboardSequenceNumber() == seqAfterSet)
+                    {
+                        RestoreClipboard(snapshot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    WriteError("Restore error: " + ex.Message);
                 }
             });
             pasteThread.SetApartmentState(ApartmentState.STA);

@@ -3,7 +3,7 @@
 # 🥑 AvoCheck
 ### Akıllı Roborock Garanti Takip & Masaüstü Asistanı
 
-[![Version](https://img.shields.io/badge/version-2.6.7-10b981.svg?style=for-the-badge)](https://github.com/KursatS/AvoCheck)
+[![Version](https://img.shields.io/badge/version-2.6.8-10b981.svg?style=for-the-badge)](https://github.com/KursatS/AvoCheck)
 [![Electron](https://img.shields.io/badge/Electron-34.5-0c0e12.svg?style=for-the-badge&logo=electron)](https://electronjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6.4-646CFF.svg?style=for-the-badge&logo=vite)](https://vitejs.dev)
