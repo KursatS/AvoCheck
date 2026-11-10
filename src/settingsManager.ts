@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 export interface AppSettings {
   popupTimeout: number;
@@ -10,6 +11,8 @@ export interface AppSettings {
   preventDuplicatePopup: boolean;
   clipboardUpperEnabled?: boolean;
   soundEnabled?: boolean;
+  formReaderTabEnabled?: boolean;
+  formReaderApiKey?: string;
   shortcuts?: {
     copyModelColor?: string;
     clearCache?: string;
@@ -25,8 +28,11 @@ export interface AppSettings {
 }
 
 export function getAppDataDir(): string {
-  const avoDir = path.join(app.getPath('documents'), 'AvoCheck');
-  const legacyDir = path.join(app.getPath('documents'), 'RecciTek');
+  const docsPath = typeof app?.getPath === 'function'
+    ? app.getPath('documents')
+    : path.join(os.homedir(), 'Documents');
+  const avoDir = path.join(docsPath, 'AvoCheck');
+  const legacyDir = path.join(docsPath, 'RecciTek');
 
   if (!fs.existsSync(avoDir)) {
     if (fs.existsSync(legacyDir)) {
@@ -62,6 +68,8 @@ export function loadSettings(): AppSettings {
     preventDuplicatePopup: true,
     clipboardUpperEnabled: true,
     soundEnabled: true,
+    formReaderTabEnabled: false,
+    formReaderApiKey: '',
     shortcuts: {
       copyModelColor: 'CommandOrControl+Shift+C',
       clearCache: 'CommandOrControl+Shift+X',
