@@ -50,8 +50,36 @@ namespace RecciTekTextExpander
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseClipboard();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool EmptyClipboard();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GlobalLock(IntPtr hMem);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GlobalUnlock(IntPtr hMem);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GlobalFree(IntPtr hMem);
 
         [DllImport("user32.dll")]
         private static extern int ToUnicode(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pwszBuff, int cchBuff, uint wFlags);
@@ -67,12 +95,61 @@ namespace RecciTekTextExpander
 
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
-        private const byte VK_BACK = 0x08;
-        private const byte VK_SHIFT = 0x10;
-        private const byte VK_CONTROL = 0x11;
-        private const byte VK_MENU = 0x12;
-        private const byte VK_V = 0x56;
+        private const uint INPUT_KEYBOARD = 1;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        private const ushort VK_BACK = 0x08;
+        private const ushort VK_SHIFT = 0x10;
+        private const ushort VK_CONTROL = 0x11;
+        private const ushort VK_MENU = 0x12;
+        private const ushort VK_V = 0x56;
+
+        private const uint CF_UNICODETEXT = 13;
+        private const uint GMEM_MOVEABLE = 0x0002;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct INPUT
+        {
+            public uint type;
+            public InputUnion u;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct InputUnion
+        {
+            [FieldOffset(0)] public MOUSEINPUT mi;
+            [FieldOffset(0)] public KEYBDINPUT ki;
+            [FieldOffset(0)] public HARDWAREINPUT hi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public UIntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public UIntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct HARDWAREINPUT
+        {
+            public uint uMsg;
+            public ushort wParamL;
+            public ushort wParamH;
+        }
 
         [STAThread]
         static void Main(string[] args)
@@ -373,6 +450,56 @@ namespace RecciTekTextExpander
             return null;
         }
 
+        private static bool FastSetClipboard(string text)
+        {
+            if (text == null) text = "";
+
+            // Retry briefly up to 5 times (2ms apart) in case another app temporarily holds clipboard
+            for (int retry = 0; retry < 5; retry++)
+            {
+                if (OpenClipboard(IntPtr.Zero))
+                {
+                    try
+                    {
+                        EmptyClipboard();
+
+                        // UTF-16 null-terminated bytes
+                        byte[] bytes = Encoding.Unicode.GetBytes(text + "\0");
+                        IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)bytes.Length);
+                        if (hGlobal == IntPtr.Zero)
+                        {
+                            return false;
+                        }
+
+                        IntPtr target = GlobalLock(hGlobal);
+                        if (target == IntPtr.Zero)
+                        {
+                            GlobalFree(hGlobal);
+                            return false;
+                        }
+
+                        Marshal.Copy(bytes, 0, target, bytes.Length);
+                        GlobalUnlock(hGlobal);
+
+                        if (SetClipboardData(CF_UNICODETEXT, hGlobal) == IntPtr.Zero)
+                        {
+                            GlobalFree(hGlobal);
+                            return false;
+                        }
+
+                        // Windows clipboard now owns hGlobal
+                        return true;
+                    }
+                    finally
+                    {
+                        CloseClipboard();
+                    }
+                }
+                Thread.Sleep(2);
+            }
+            return false;
+        }
+
         private static void TriggerExpansion(int backspaceCount, string replacement, string triggerName)
         {
             _isExpanding = true;
@@ -380,36 +507,89 @@ namespace RecciTekTextExpander
             {
                 try
                 {
-                    // 1. Send Backspaces to remove typed trigger word
-                    for (int i = 0; i < backspaceCount; i++)
+                    // 1. Instantly set replacement text to Windows Clipboard via raw Win32 (< 1ms)
+                    bool clipOk = FastSetClipboard(replacement);
+                    if (!clipOk)
                     {
-                        keybd_event(VK_BACK, 0, 0, UIntPtr.Zero);
-                        keybd_event(VK_BACK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                        Thread.Sleep(6);
+                        // Fallback to WinForms Clipboard if Win32 lock failed
+                        try { Clipboard.SetDataObject(replacement, true); } catch { }
                     }
 
-                    // 2. Set Clipboard Text
-                    Thread.Sleep(15);
-                    for (int retry = 0; retry < 6; retry++)
+                    // 2. Batch Send Backspaces atomically via SendInput (0ms latency, zero visible deletion)
+                    if (backspaceCount > 0)
                     {
-                        try
+                        INPUT[] bsInputs = new INPUT[backspaceCount * 2];
+                        for (int i = 0; i < backspaceCount; i++)
                         {
-                            Clipboard.SetDataObject(replacement, true);
-                            break;
+                            bsInputs[i * 2].type = INPUT_KEYBOARD;
+                            bsInputs[i * 2].u.ki.wVk = VK_BACK;
+                            bsInputs[i * 2].u.ki.dwFlags = 0;
+
+                            bsInputs[i * 2 + 1].type = INPUT_KEYBOARD;
+                            bsInputs[i * 2 + 1].u.ki.wVk = VK_BACK;
+                            bsInputs[i * 2 + 1].u.ki.dwFlags = KEYEVENTF_KEYUP;
                         }
-                        catch
-                        {
-                            Thread.Sleep(20);
-                        }
+                        SendInput((uint)bsInputs.Length, bsInputs, Marshal.SizeOf(typeof(INPUT)));
                     }
 
-                    // 3. Send Ctrl+V
-                    Thread.Sleep(20);
-                    keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
-                    keybd_event(VK_V, 0, 0, UIntPtr.Zero);
-                    Thread.Sleep(15);
-                    keybd_event(VK_V, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    // Micro-pause (5ms) to ensure target app window processes caret position before paste
+                    Thread.Sleep(5);
+
+                    // 3. Check if Shift is physically held down by user (e.g. typing a symbol trigger)
+                    bool shiftWasDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+
+                    var pasteList = new List<INPUT>();
+
+                    // If Shift is down, release it temporarily so Ctrl+V doesn't become Ctrl+Shift+V
+                    if (shiftWasDown)
+                    {
+                        INPUT shiftUp = new INPUT();
+                        shiftUp.type = INPUT_KEYBOARD;
+                        shiftUp.u.ki.wVk = VK_SHIFT;
+                        shiftUp.u.ki.dwFlags = KEYEVENTF_KEYUP;
+                        pasteList.Add(shiftUp);
+                    }
+
+                    // Ctrl Down
+                    INPUT ctrlDown = new INPUT();
+                    ctrlDown.type = INPUT_KEYBOARD;
+                    ctrlDown.u.ki.wVk = VK_CONTROL;
+                    ctrlDown.u.ki.dwFlags = 0;
+                    pasteList.Add(ctrlDown);
+
+                    // V Down
+                    INPUT vDown = new INPUT();
+                    vDown.type = INPUT_KEYBOARD;
+                    vDown.u.ki.wVk = VK_V;
+                    vDown.u.ki.dwFlags = 0;
+                    pasteList.Add(vDown);
+
+                    // V Up
+                    INPUT vUp = new INPUT();
+                    vUp.type = INPUT_KEYBOARD;
+                    vUp.u.ki.wVk = VK_V;
+                    vUp.u.ki.dwFlags = KEYEVENTF_KEYUP;
+                    pasteList.Add(vUp);
+
+                    // Ctrl Up
+                    INPUT ctrlUp = new INPUT();
+                    ctrlUp.type = INPUT_KEYBOARD;
+                    ctrlUp.u.ki.wVk = VK_CONTROL;
+                    ctrlUp.u.ki.dwFlags = KEYEVENTF_KEYUP;
+                    pasteList.Add(ctrlUp);
+
+                    // Restore Shift if user is still holding it
+                    if (shiftWasDown && ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0))
+                    {
+                        INPUT shiftDown = new INPUT();
+                        shiftDown.type = INPUT_KEYBOARD;
+                        shiftDown.u.ki.wVk = VK_SHIFT;
+                        shiftDown.u.ki.dwFlags = 0;
+                        pasteList.Add(shiftDown);
+                    }
+
+                    INPUT[] pasteInputs = pasteList.ToArray();
+                    SendInput((uint)pasteInputs.Length, pasteInputs, Marshal.SizeOf(typeof(INPUT)));
 
                     WriteLine("{\"event\":\"EXPANDED\",\"trigger\":\"" + triggerName + "\"}");
                 }
@@ -419,11 +599,12 @@ namespace RecciTekTextExpander
                 }
                 finally
                 {
-                    Thread.Sleep(80);
+                    Thread.Sleep(15);
                     _isExpanding = false;
                 }
             });
             pasteThread.SetApartmentState(ApartmentState.STA);
+            pasteThread.IsBackground = true;
             pasteThread.Start();
         }
     }
