@@ -603,19 +603,185 @@ setupShortcutRecorder(sShortcutModelCopy)
 setupShortcutRecorder(sShortcutClear)
 setupShortcutRecorder(sShortcutMonitoring)
 
-// ── Check Updates ──
+// ── Check Updates & Auto-Updater System ──
+const updateBar = document.getElementById('update-bar')
+const updateMsg = document.getElementById('update-msg')
+const updateSub = document.getElementById('update-sub')
+const updateProgressWrap = document.getElementById('update-progress-wrap')
+const updateProgressBar = document.getElementById('update-progress-bar')
+const updateActionBtn = document.getElementById('update-action-btn') as HTMLButtonElement | null
+const updateDismissBtn = document.getElementById('update-dismiss-btn')
+
+let updateState: 'idle' | 'available' | 'downloading' | 'ready' = 'idle'
+let currentAppVersion = ''
+
+api.getAppVersion?.().then((ver: string) => {
+  if (ver) {
+    currentAppVersion = ver
+    if (updateCheckStatus && !updateCheckStatus.textContent?.includes('Yeni')) {
+      updateCheckStatus.textContent = `Mevcut Sürüm: v${ver} • GitHub üzerinden kontrol edin`
+    }
+  }
+})
+
+function showUpdateAvailableUI(version: string) {
+  updateState = 'available'
+  if (updateBar) updateBar.style.display = 'flex'
+  if (updateMsg) updateMsg.textContent = `📢 Yeni AvoCheck Sürümü Mevcut: v${version}`
+  if (updateSub) updateSub.textContent = 'En güncel sürümü indirip otomatik kurmak için tıklayın.'
+  if (updateActionBtn) {
+    updateActionBtn.textContent = '⚡ Şimdi İndir'
+    updateActionBtn.disabled = false
+    updateActionBtn.style.opacity = '1'
+  }
+  if (updateCheckStatus) {
+    updateCheckStatus.style.color = 'var(--accent-lime)'
+    updateCheckStatus.textContent = `📢 Yeni sürüm bulundu: v${version}`
+  }
+  if (btnCheckUpdate) {
+    btnCheckUpdate.textContent = '⚡ Yeni Sürüm Var'
+    btnCheckUpdate.disabled = false
+  }
+}
+
+api.onUpdateAvailable((version: string) => {
+  showUpdateAvailableUI(version)
+})
+
+api.onUpdateNotAvailable(() => {
+  if (updateCheckStatus) {
+    updateCheckStatus.style.color = ''
+    updateCheckStatus.textContent = currentAppVersion
+      ? `✓ Harika! En güncel sürümü (v${currentAppVersion}) kullanıyorsunuz.`
+      : '✓ Harika! En güncel sürümü kullanıyorsunuz.'
+  }
+  if (btnCheckUpdate) {
+    btnCheckUpdate.disabled = false
+    btnCheckUpdate.textContent = '🔍 Kontrol Et'
+  }
+})
+
+api.onUpdateError((err: string) => {
+  console.warn('[AutoUpdater Error]:', err)
+  if (updateCheckStatus) {
+    updateCheckStatus.style.color = 'var(--accent-red, #ef4444)'
+    updateCheckStatus.textContent = `⚠️ Güncelleme hatası: ${err || 'Bağlantı kurulamadı'}`
+  }
+  if (updateState === 'downloading') {
+    updateState = 'available'
+    if (updateActionBtn) {
+      updateActionBtn.textContent = '🔄 Tekrar Dene'
+      updateActionBtn.disabled = false
+      updateActionBtn.style.opacity = '1'
+    }
+  }
+  if (btnCheckUpdate) {
+    btnCheckUpdate.disabled = false
+    btnCheckUpdate.textContent = '🔍 Kontrol Et'
+  }
+})
+
+api.onUpdateProgress((percent: number) => {
+  if (updateProgressWrap) updateProgressWrap.style.display = 'block'
+  if (updateProgressBar) updateProgressBar.style.width = `${percent}%`
+  if (updateMsg) updateMsg.textContent = `⏬ Güncelleme İndiriliyor... %${percent}`
+  if (updateActionBtn) {
+    updateActionBtn.textContent = `%${percent}`
+    updateActionBtn.disabled = true
+    updateActionBtn.style.opacity = '0.75'
+  }
+})
+
+api.onUpdateDownloaded(() => {
+  updateState = 'ready'
+  if (updateProgressWrap) updateProgressWrap.style.display = 'none'
+  if (updateMsg) updateMsg.textContent = '✓ Güncelleme İndirildi ve Hazır!'
+  if (updateSub) updateSub.textContent = 'Uygulamayı yeniden başlatıp yeni sürüme geçmek için tıklayın.'
+  if (updateActionBtn) {
+    updateActionBtn.textContent = '🚀 Şimdi Güncelle ve Yeniden Başlat'
+    updateActionBtn.disabled = false
+    updateActionBtn.style.opacity = '1'
+    updateActionBtn.style.background = '#10b981'
+    updateActionBtn.style.color = '#ffffff'
+  }
+  if (updateCheckStatus) {
+    updateCheckStatus.style.color = '#10b981'
+    updateCheckStatus.textContent = '✓ Yeni sürüm indirildi. Yeniden başlatma bekleniyor.'
+  }
+  showToast('AvoCheck güncellemesi indirildi. Yeniden başlatarak kurabilirsiniz.', 'success')
+})
+
+if (updateActionBtn) {
+  updateActionBtn.onclick = () => {
+    if (updateState === 'available' || updateState === 'idle') {
+      updateState = 'downloading'
+      updateActionBtn.textContent = '⏳ Başlatılıyor...'
+      updateActionBtn.disabled = true
+      updateActionBtn.style.opacity = '0.75'
+      api.startUpdateDownload()
+    } else if (updateState === 'ready') {
+      updateActionBtn.textContent = 'Yükleniyor...'
+      updateActionBtn.disabled = true
+      api.installUpdate()
+    }
+  }
+}
+
+if (updateDismissBtn && updateBar) {
+  updateDismissBtn.onclick = () => {
+    updateBar.style.display = 'none'
+  }
+}
+
 if (btnCheckUpdate) {
   btnCheckUpdate.onclick = async () => {
-    if (updateCheckStatus) updateCheckStatus.textContent = 'Güncellemeler kontrol ediliyor...'
+    btnCheckUpdate.disabled = true
+    btnCheckUpdate.textContent = '⏳ Kontrol Ediliyor...'
+    if (updateCheckStatus) {
+      updateCheckStatus.style.color = ''
+      updateCheckStatus.textContent = 'GitHub sunucularına bağlanılıyor...'
+    }
     try {
       const res = await api.checkForUpdates()
       if (res && res.status === 'dev') {
         if (updateCheckStatus) updateCheckStatus.textContent = 'Geliştirici modundasınız. Canlı güncelleme pasif.'
+        btnCheckUpdate.disabled = false
+        btnCheckUpdate.textContent = '🔍 Kontrol Et'
+      } else if (res && res.status === 'error') {
+        if (updateCheckStatus) {
+          updateCheckStatus.style.color = 'var(--accent-red, #ef4444)'
+          updateCheckStatus.textContent = `⚠️ Hata: ${res.error || 'Bağlantı kurulamadı'}`
+        }
+        btnCheckUpdate.disabled = false
+        btnCheckUpdate.textContent = '🔍 Tekrar Dene'
+      } else if (res && res.updateInfo && res.updateInfo.version) {
+        const remoteVer = res.updateInfo.version
+        const localVer = res.currentVersion || currentAppVersion
+        if (remoteVer !== localVer) {
+          showUpdateAvailableUI(remoteVer)
+        } else {
+          if (updateCheckStatus) {
+            updateCheckStatus.style.color = ''
+            updateCheckStatus.textContent = `✓ Harika! En güncel sürümü (v${localVer}) kullanıyorsunuz.`
+          }
+          btnCheckUpdate.disabled = false
+          btnCheckUpdate.textContent = '🔍 Kontrol Et'
+        }
       } else {
-        if (updateCheckStatus) updateCheckStatus.textContent = 'En güncel sürümü kullanıyorsunuz.'
+        if (updateCheckStatus) {
+          updateCheckStatus.style.color = ''
+          updateCheckStatus.textContent = '✓ Harika! En güncel sürümü kullanıyorsunuz.'
+        }
+        btnCheckUpdate.disabled = false
+        btnCheckUpdate.textContent = '🔍 Kontrol Et'
       }
-    } catch {
-      if (updateCheckStatus) updateCheckStatus.textContent = 'Güncelleme kontrolü başarısız oldu.'
+    } catch (e: any) {
+      if (updateCheckStatus) {
+        updateCheckStatus.style.color = 'var(--accent-red, #ef4444)'
+        updateCheckStatus.textContent = '⚠️ Güncelleme kontrolü başarısız oldu.'
+      }
+      btnCheckUpdate.disabled = false
+      btnCheckUpdate.textContent = '🔍 Kontrol Et'
     }
   }
 }

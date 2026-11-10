@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('switch-view', (_event, view) => callback(view)),
 
     // Auto-Updater
+    getAppVersion: () => safeInvoke('get-app-version'),
     checkForUpdates: () => safeInvoke('check-for-updates'),
     onUpdateAvailable: (callback: any) =>
         ipcRenderer.on('update-available', (_event, version) => callback(version)),

@@ -280,20 +280,27 @@ function setupIpcHandlers() {
     checkServerStatus();
   });
 
+  ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+  });
+
   ipcMain.handle('check-for-updates', async () => {
+    const currentVersion = app.getVersion();
     if (is.dev) {
-      return { status: 'dev' };
+      return { status: 'dev', currentVersion };
     }
     try {
       const result = await autoUpdater.checkForUpdates();
       return {
         status: 'checked',
+        currentVersion,
         updateInfo: result?.updateInfo
       };
     } catch (err: any) {
       console.error('Check for updates error:', err);
       return {
         status: 'error',
+        currentVersion,
         error: err?.message || 'Güncelleme kontrolü başarısız'
       };
     }
@@ -546,6 +553,13 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('update-downloaded');
       }
     });
+
+    // Check for updates automatically in the background after launch
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.warn('[AutoUpdater] Startup update check failed:', err?.message || err);
+      });
+    }, 8000);
   }
 });
 
