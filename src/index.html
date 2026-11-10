@@ -1064,6 +1064,10 @@
         <span>⚡</span>
         <span>Metin Genişletici</span>
       </button>
+      <button class="tab-btn" data-view="form-reader" id="tab-form-reader" style="display:none;">
+        <span>📄</span>
+        <span>Form Okuyucu</span>
+      </button>
       <button class="tab-btn" data-view="settings" id="tab-settings">
         <span>⚙️</span>
         <span>Ayarlar</span>
@@ -1267,6 +1271,109 @@
       </div>
     </section>
 
+    <!-- View 2.5: AI Form Reader (OCR & Müşteri Formu Ayrıştırıcı) -->
+    <section id="view-form-reader" class="view-section">
+      <div class="snippets-container">
+        <!-- Top Connection & Server Control Banner -->
+        <div class="snippets-header-card" style="flex-wrap: wrap; align-items: stretch;">
+          <div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <div class="snippets-hero-title">📄 AI Servis Formu Okuyucu</div>
+                <span id="form-reader-status-badge" class="badge-lite" style="font-size: 0.72rem; padding: 4px 10px;">KAPALI</span>
+              </div>
+              <div class="snippets-hero-sub">
+                El yazısı veya bilgisayar çıktısı müşteri formlarını telefondan (<code id="form-reader-url" style="color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-weight: 700;">http://--:5055</code>) ya da doğrudan bu ekrandan Gemini ile okuyup <strong>Tampermonkey</strong> şablonunda panoya kopyalar.
+              </div>
+            </div>
+
+            <!-- Inline API Key Bar -->
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--surface-elevated); padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border-subtle);">
+              <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap;">🔑 Gemini API Anahtarı:</span>
+              <input type="password" id="form-reader-inline-api-key" class="snippet-input" placeholder="AIza... veya AQ... anahtarınızı girin" style="flex: 1; min-width: 180px; padding: 7px 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;">
+              <button type="button" id="btn-toggle-api-key-vis" class="btn" title="Göster / Gizle" style="padding: 7px 10px;">👁️</button>
+              <button type="button" id="btn-save-form-api-key" class="btn" style="padding: 7px 14px;">💾 Kaydet</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <button type="button" id="btn-form-reader-toggle" class="btn" style="background: var(--pill-active-bg); color: var(--pill-active-text); border-color: transparent; padding: 10px 20px; font-size: 0.92rem;">
+                <span>▶️ Servisi Başlat (:5055)</span>
+              </button>
+              <button type="button" id="btn-form-reader-copy-url" class="btn" title="Telefon bağlantısını kopyala">
+                <span>🔗 Adresi Kopyala</span>
+              </button>
+              <button type="button" id="btn-form-reader-open-folder" class="btn" title="Kaydedilen form fotoğrafları klasörünü aç">
+                <span>📂 Kayıtlar Klasörü</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: QR Code Box -->
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: var(--surface-elevated); border: 1px solid var(--border-subtle); border-radius: 18px; padding: 14px 18px; min-width: 165px;">
+            <div id="form-reader-qr" style="width: 124px; height: 124px; border-radius: 10px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; opacity: 0.35; transition: opacity 0.2s;">
+              <!-- SVG QR populated dynamically -->
+            </div>
+            <span id="form-reader-qr-caption" style="font-size: 0.74rem; font-weight: 700; color: var(--text-secondary); text-align: center;">Servis başlatıldığında<br>telefonla okutun</span>
+          </div>
+        </div>
+
+        <!-- Two Column Body: PC Input (Left) & Result Preview (Right) -->
+        <div class="snippets-grid" style="grid-template-columns: 1fr 1fr;">
+          <!-- Left: PC Photo Dropzone / Ctrl+V / Raw Text -->
+          <div class="snippet-form-card">
+            <div class="snippet-card-title">
+              <span>💻 Bilgisayardan Hızlı Form Okut</span>
+              <span class="badge-lite">FOTO & METİN</span>
+            </div>
+
+            <div id="form-reader-dropzone" style="border: 2px dashed var(--border-subtle); border-radius: 16px; padding: 20px 16px; text-align: center; cursor: pointer; background: var(--surface-elevated); transition: all 0.15s;">
+              <div style="font-size: 1.7rem; margin-bottom: 6px;">📷</div>
+              <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary); margin-bottom: 4px;">
+                Fotoğrafları buraya sürükleyin, tıklayıp seçin veya <kbd style="padding: 2px 6px; border-radius: 6px; background: var(--surface-card); border: 1px solid var(--border-subtle); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;">Ctrl+V</kbd> ile yapıştırın
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-secondary);">
+                WhatsApp Web'den kopyalanan el yazısı veya form görsellerini doğrudan yapıştırabilirsiniz.
+              </div>
+              <input type="file" id="form-reader-file-input" accept="image/*" multiple style="display: none;">
+            </div>
+
+            <div id="form-reader-thumbs" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;"></div>
+
+            <div class="snippet-input-group">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label class="snippet-input-label">veya Ham Form Metni Yapıştırın</label>
+                <button type="button" id="btn-form-reader-clear-pc" class="card-delete-btn" style="font-size: 12px;">Temizle</button>
+              </div>
+              <textarea id="form-reader-raw-text" class="snippet-textarea" placeholder="Uzun müşteri mesajını veya OCR metnini buraya yapıştırıp şablona dönüştürebilirsiniz..." style="min-height: 95px;"></textarea>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <span id="form-reader-pc-status" style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">Hazır</span>
+              <button type="button" id="btn-form-reader-submit-pc" class="btn" style="background: var(--pill-active-bg); color: var(--pill-active-text); border-color: transparent; padding: 10px 20px;">
+                <span>⚡ Ayrıştır & Panoya Kopyala</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: Last Parsed Form Output -->
+          <div class="snippet-form-card">
+            <div class="snippet-card-title">
+              <span>📋 Son Ayrıştırılan Form (Tampermonkey Şablonu)</span>
+              <span id="form-reader-last-meta" class="meta-stat" style="font-size: 0.76rem;">Henüz form okunmadı</span>
+            </div>
+
+            <textarea id="form-reader-result-text" class="snippet-textarea" placeholder="Telefondan veya bilgisayardan okutulan form çıktısı burada görünür ve otomatik olarak bilgisayar panosuna kopyalanır..." style="min-height: 245px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;"></textarea>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+              <button type="button" id="btn-form-reader-copy-result" class="btn" style="background: var(--pill-active-bg); color: var(--pill-active-text); border-color: transparent;">
+                <span>📋 Panoya Kopyala</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- View 3: Settings -->
     <section id="view-settings" class="view-section">
       <div class="settings-container">
@@ -1424,6 +1531,35 @@
               <button id="btn-check-update" class="btn">
                 🔍 Kontrol Et
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Form Okuyucu Modülü -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <span>📄</span>
+            <span>AI Form Okuyucu Modülü (İsteğe Bağlı)</span>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-title">Form Okuyucu Sekmesini Göster</div>
+              <div class="setting-desc">Üst menüye el yazısı ve müşteri formu okuyucu sekmesini ekler (Servis yine sekme içinden manuel başlatılır)</div>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="form-reader-tab-enabled">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-title">Gemini API Anahtarı</div>
+              <div class="setting-desc">Form okuyucuyu kullanacak personel için kişisel Gemini API anahtarı</div>
+            </div>
+            <div class="setting-control">
+              <input type="password" id="form-reader-api-key" placeholder="API Anahtarı girin..." class="shortcut-input" style="width: 260px; text-align: left;">
             </div>
           </div>
         </div>

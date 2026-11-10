@@ -25,9 +25,11 @@ const btnExportExcel = document.getElementById('btn-export-excel')
 // Navigation Tabs
 const tabHistory = document.getElementById('tab-history')!
 const tabSnippets = document.getElementById('tab-snippets')!
+const tabFormReader = document.getElementById('tab-form-reader') as HTMLButtonElement
 const tabSettings = document.getElementById('tab-settings')!
 const viewHistory = document.getElementById('view-history')!
 const viewSnippets = document.getElementById('view-snippets')!
+const viewFormReader = document.getElementById('view-form-reader')!
 const viewSettings = document.getElementById('view-settings')!
 
 // Settings Controls
@@ -40,6 +42,8 @@ const sAutoStart = document.getElementById('auto-start') as HTMLInputElement
 const sPreventDuplicate = document.getElementById('prevent-duplicate') as HTMLInputElement
 const sClipboardUpper = document.getElementById('clipboard-upper') as HTMLInputElement
 const sSoundEnabled = document.getElementById('sound-enabled') as HTMLInputElement
+const sFormReaderTabEnabled = document.getElementById('form-reader-tab-enabled') as HTMLInputElement
+const sFormReaderApiKey = document.getElementById('form-reader-api-key') as HTMLInputElement
 const btnCheckUpdate = document.getElementById('btn-check-update')
 const updateCheckStatus = document.getElementById('update-check-status')
 
@@ -284,27 +288,33 @@ document.querySelectorAll('.filter-chip').forEach((chip: any) => {
 })
 
 // ── Tab Navigation ──
-function switchTab(view: 'history' | 'settings' | 'snippets') {
+function switchTab(view: 'history' | 'settings' | 'snippets' | 'form-reader') {
   tabHistory.classList.toggle('active', view === 'history')
   tabSnippets.classList.toggle('active', view === 'snippets')
+  if (tabFormReader) tabFormReader.classList.toggle('active', view === 'form-reader')
   tabSettings.classList.toggle('active', view === 'settings')
 
   viewHistory.classList.toggle('active', view === 'history')
   viewSnippets.classList.toggle('active', view === 'snippets')
+  if (viewFormReader) viewFormReader.classList.toggle('active', view === 'form-reader')
   viewSettings.classList.toggle('active', view === 'settings')
 
   if (view === 'snippets') {
     loadSnippetsToUI()
+  } else if (view === 'form-reader') {
+    refreshFormReaderStatus()
   }
 }
 
 tabHistory.onclick = () => switchTab('history')
 tabSnippets.onclick = () => switchTab('snippets')
+if (tabFormReader) tabFormReader.onclick = () => switchTab('form-reader')
 tabSettings.onclick = () => switchTab('settings')
 
 api.onSwitchView((view: string) => {
   if (view === 'settings') switchTab('settings')
   else if (view === 'snippets') switchTab('snippets')
+  else if (view === 'form-reader') switchTab('form-reader')
   else switchTab('history')
 })
 
@@ -502,6 +512,12 @@ async function loadSettingsToUI() {
   sPreventDuplicate.checked = s.preventDuplicatePopup || false
   sClipboardUpper.checked = s.clipboardUpperEnabled !== false
   if (sSoundEnabled) sSoundEnabled.checked = s.soundEnabled !== false
+  if (sFormReaderTabEnabled) sFormReaderTabEnabled.checked = s.formReaderTabEnabled === true
+  if (sFormReaderApiKey) sFormReaderApiKey.value = s.formReaderApiKey || ''
+  if (formReaderInlineApiKey) formReaderInlineApiKey.value = s.formReaderApiKey || ''
+  if (tabFormReader) {
+    tabFormReader.style.display = s.formReaderTabEnabled === true ? '' : 'none'
+  }
 
   clipboardUpperEnabled = s.clipboardUpperEnabled !== false
   updateUpperToggleUI(clipboardUpperEnabled)
@@ -511,6 +527,9 @@ async function loadSettingsToUI() {
 
 async function saveCurrentSettings() {
   const currentSettings = await api.getSettings()
+  const formReaderTabEnabled = sFormReaderTabEnabled ? sFormReaderTabEnabled.checked : Boolean(currentSettings.formReaderTabEnabled)
+  const formReaderApiKey = sFormReaderApiKey ? sFormReaderApiKey.value.trim() : (currentSettings.formReaderApiKey || '')
+
   const settingsToSave = {
     ...currentSettings,
     shortcuts: {
@@ -523,13 +542,21 @@ async function saveCurrentSettings() {
     autoStartEnabled: sAutoStart.checked,
     preventDuplicatePopup: sPreventDuplicate.checked,
     clipboardUpperEnabled: sClipboardUpper.checked,
-    soundEnabled: sSoundEnabled ? sSoundEnabled.checked : true
+    soundEnabled: sSoundEnabled ? sSoundEnabled.checked : true,
+    formReaderTabEnabled,
+    formReaderApiKey
   }
 
   try {
     await api.saveSettings(settingsToSave)
     clipboardUpperEnabled = sClipboardUpper.checked
     updateUpperToggleUI(clipboardUpperEnabled)
+    if (tabFormReader) {
+      tabFormReader.style.display = formReaderTabEnabled ? '' : 'none'
+    }
+    if (formReaderInlineApiKey) {
+      formReaderInlineApiKey.value = formReaderApiKey
+    }
     showToast('Ayarlar kaydedildi.', 'success')
   } catch (e: any) {
     showToast('Ayarlar kaydedilirken hata oluştu.', 'error')
@@ -552,6 +579,8 @@ sAutoStart.addEventListener('change', () => triggerAutoSave(0))
 sPreventDuplicate.addEventListener('change', () => triggerAutoSave(0))
 sClipboardUpper.addEventListener('change', () => triggerAutoSave(0))
 if (sSoundEnabled) sSoundEnabled.addEventListener('change', () => triggerAutoSave(0))
+if (sFormReaderTabEnabled) sFormReaderTabEnabled.addEventListener('change', () => triggerAutoSave(0))
+if (sFormReaderApiKey) sFormReaderApiKey.addEventListener('input', () => triggerAutoSave(600))
 
 function setupShortcutRecorder(input: HTMLInputElement) {
   if (!input) return
@@ -868,6 +897,341 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
 }
+
+// ── AI Form Okuyucu (OCR & Müşteri Formu Ayrıştırıcı) ──
+const formReaderStatusBadge = document.getElementById('form-reader-status-badge')
+const formReaderUrlEl = document.getElementById('form-reader-url')
+const formReaderInlineApiKey = document.getElementById('form-reader-inline-api-key') as HTMLInputElement
+const btnToggleApiKeyVis = document.getElementById('btn-toggle-api-key-vis')
+const btnSaveFormApiKey = document.getElementById('btn-save-form-api-key')
+const btnFormReaderToggle = document.getElementById('btn-form-reader-toggle') as HTMLButtonElement
+const btnFormReaderCopyUrl = document.getElementById('btn-form-reader-copy-url')
+const btnFormReaderOpenFolder = document.getElementById('btn-form-reader-open-folder')
+const formReaderQr = document.getElementById('form-reader-qr')
+const formReaderQrCaption = document.getElementById('form-reader-qr-caption')
+const formReaderDropzone = document.getElementById('form-reader-dropzone')
+const formReaderFileInput = document.getElementById('form-reader-file-input') as HTMLInputElement
+const formReaderThumbs = document.getElementById('form-reader-thumbs')
+const formReaderRawText = document.getElementById('form-reader-raw-text') as HTMLTextAreaElement
+const btnFormReaderClearPc = document.getElementById('btn-form-reader-clear-pc')
+const formReaderPcStatus = document.getElementById('form-reader-pc-status')
+const btnFormReaderSubmitPc = document.getElementById('btn-form-reader-submit-pc') as HTMLButtonElement
+const formReaderResultText = document.getElementById('form-reader-result-text') as HTMLTextAreaElement
+const formReaderLastMeta = document.getElementById('form-reader-last-meta')
+const btnFormReaderCopyResult = document.getElementById('btn-form-reader-copy-result')
+
+let formReaderRunning = false
+let formReaderUrl = ''
+let pcPhotos: Array<{ base64: string; mime: string; previewUrl: string }> = []
+
+function playFormReadyChime() {
+  if (sSoundEnabled && !sSoundEnabled.checked) return
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const notes = [587.33, 880] // D5 -> A5 pleasant two-tone chime
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0.001, ctx.currentTime + i * 0.11)
+      gain.gain.exponentialRampToValueAtTime(0.14, ctx.currentTime + i * 0.11 + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.11 + 0.25)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(ctx.currentTime + i * 0.11)
+      osc.stop(ctx.currentTime + i * 0.11 + 0.26)
+    })
+  } catch { }
+}
+
+function applyFormReaderStatusUI(st: any) {
+  if (!st) return
+  formReaderRunning = Boolean(st.running)
+  formReaderUrl = st.url || 'http://127.0.0.1:5055'
+
+  if (formReaderUrlEl) formReaderUrlEl.textContent = formReaderUrl
+  if (formReaderQr && st.qrSvg) {
+    formReaderQr.innerHTML = st.qrSvg
+    formReaderQr.style.opacity = formReaderRunning ? '1' : '0.35'
+  }
+  if (formReaderQrCaption) {
+    formReaderQrCaption.innerHTML = formReaderRunning
+      ? `<span style="color: var(--accent-lime);">● Aktif</span> — Kamerayla okutun`
+      : 'Servis başlatıldığında<br>telefonla okutun'
+  }
+  if (formReaderStatusBadge) {
+    formReaderStatusBadge.textContent = formReaderRunning ? 'ÇALIŞIYOR (:5055)' : 'KAPALI'
+    formReaderStatusBadge.style.background = formReaderRunning ? 'rgba(16, 185, 129, 0.18)' : ''
+    formReaderStatusBadge.style.color = formReaderRunning ? '#10b981' : ''
+    formReaderStatusBadge.style.borderColor = formReaderRunning ? 'rgba(16, 185, 129, 0.4)' : ''
+  }
+  if (btnFormReaderToggle) {
+    btnFormReaderToggle.innerHTML = formReaderRunning
+      ? '<span>⏹️ Servisi Durdur (:5055)</span>'
+      : '<span>▶️ Servisi Başlat (:5055)</span>'
+  }
+  if (st.lastResult && formReaderResultText && !formReaderResultText.value) {
+    formReaderResultText.value = st.lastResult
+  }
+}
+
+async function refreshFormReaderStatus() {
+  try {
+    const st = await api.getFormReaderStatus()
+    applyFormReaderStatusUI(st)
+  } catch { }
+}
+
+if (btnToggleApiKeyVis && formReaderInlineApiKey) {
+  btnToggleApiKeyVis.onclick = () => {
+    const isPwd = formReaderInlineApiKey.type === 'password'
+    formReaderInlineApiKey.type = isPwd ? 'text' : 'password'
+    if (sFormReaderApiKey) sFormReaderApiKey.type = isPwd ? 'text' : 'password'
+  }
+}
+
+if (btnSaveFormApiKey && formReaderInlineApiKey) {
+  btnSaveFormApiKey.onclick = async () => {
+    const key = formReaderInlineApiKey.value.trim()
+    if (sFormReaderApiKey) sFormReaderApiKey.value = key
+    const currentSettings = await api.getSettings()
+    await api.saveSettings({ ...currentSettings, formReaderApiKey: key })
+    showToast('Gemini API anahtarı kaydedildi.', 'success')
+  }
+}
+
+if (btnFormReaderToggle) {
+  btnFormReaderToggle.onclick = async () => {
+    btnFormReaderToggle.disabled = true
+    try {
+      if (formReaderInlineApiKey) {
+        const inlineKey = formReaderInlineApiKey.value.trim()
+        if (sFormReaderApiKey && inlineKey !== sFormReaderApiKey.value.trim()) {
+          sFormReaderApiKey.value = inlineKey
+          const s = await api.getSettings()
+          await api.saveSettings({ ...s, formReaderApiKey: inlineKey })
+        }
+      }
+      const st = formReaderRunning
+        ? await api.stopFormReader()
+        : await api.startFormReader()
+      applyFormReaderStatusUI(st)
+      if (st.error) {
+        showToast(st.error, 'error')
+      } else if (st.running) {
+        showToast(`Form Okuyucu başlatıldı: ${st.url}`, 'success')
+      } else {
+        showToast('Form Okuyucu durduruldu.', 'info')
+      }
+    } catch (e: any) {
+      showToast('İşlem başarısız: ' + (e?.message || e), 'error')
+    } finally {
+      btnFormReaderToggle.disabled = false
+    }
+  }
+}
+
+if (btnFormReaderCopyUrl) {
+  btnFormReaderCopyUrl.onclick = () => {
+    if (!formReaderUrl) return
+    navigator.clipboard.writeText(formReaderUrl)
+    showToast(`Bağlantı kopyalandı: ${formReaderUrl}`, 'success')
+  }
+}
+
+if (btnFormReaderOpenFolder) {
+  btnFormReaderOpenFolder.onclick = () => {
+    api.openFormReaderFolder()
+  }
+}
+
+async function compressFileToJpegBase64(file: File): Promise<{ base64: string; mime: string; previewUrl: string }> {
+  const MAX_DIM = 2200
+  const QUALITY = 0.85
+  let bmp: ImageBitmap | HTMLImageElement
+  try {
+    bmp = await createImageBitmap(file, { imageOrientation: 'from-image' } as any)
+  } catch {
+    bmp = await new Promise<HTMLImageElement>((res, rej) => {
+      const img = new Image()
+      img.onload = () => res(img)
+      img.onerror = rej
+      img.src = URL.createObjectURL(file)
+    })
+  }
+  const w = bmp.width
+  const h = bmp.height
+  const scale = Math.min(1, MAX_DIM / Math.max(w, h))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(w * scale)
+  canvas.height = Math.round(h * scale)
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+  const dataUrl = canvas.toDataURL('image/jpeg', QUALITY)
+  const base64 = dataUrl.split(',')[1] || ''
+  return { base64, mime: 'image/jpeg', previewUrl: dataUrl }
+}
+
+function renderPcThumbs() {
+  if (!formReaderThumbs) return
+  formReaderThumbs.innerHTML = ''
+  pcPhotos.forEach((p, idx) => {
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'position:relative; aspect-ratio:3/4; border-radius:10px; overflow:hidden; border:1px solid var(--border-subtle); background:var(--surface-elevated);'
+    wrap.innerHTML = `
+      <img src="${p.previewUrl}" style="width:100%; height:100%; object-fit:cover; display:block;">
+      <span style="position:absolute; left:5px; bottom:5px; background:rgba(0,0,0,0.72); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px;">Sayfa ${idx + 1}</span>
+    `
+    const del = document.createElement('button')
+    del.type = 'button'
+    del.textContent = '✕'
+    del.style.cssText = 'position:absolute; right:4px; top:4px; width:22px; height:22px; border:0; border-radius:50%; background:rgba(0,0,0,0.75); color:#fff; font-size:12px; cursor:pointer;'
+    del.onclick = () => {
+      pcPhotos.splice(idx, 1)
+      renderPcThumbs()
+    }
+    wrap.appendChild(del)
+    formReaderThumbs.appendChild(wrap)
+  })
+}
+
+async function addPcImageFiles(files: FileList | File[]) {
+  const arr = Array.from(files).filter((f) => f.type.startsWith('image/'))
+  if (arr.length === 0) return
+  if (formReaderPcStatus) formReaderPcStatus.textContent = 'Fotoğraflar hazırlanıyor...'
+  for (const f of arr) {
+    try {
+      const item = await compressFileToJpegBase64(f)
+      pcPhotos.push(item)
+    } catch {
+      showToast('Bir fotoğraf okunamadı.', 'error')
+    }
+  }
+  renderPcThumbs()
+  if (formReaderPcStatus) formReaderPcStatus.textContent = `${pcPhotos.length} sayfa hazır`
+}
+
+if (formReaderDropzone && formReaderFileInput) {
+  formReaderDropzone.onclick = () => formReaderFileInput.click()
+  formReaderFileInput.onchange = async () => {
+    if (formReaderFileInput.files) {
+      await addPcImageFiles(formReaderFileInput.files)
+      formReaderFileInput.value = ''
+    }
+  }
+  formReaderDropzone.ondragover = (e) => {
+    e.preventDefault()
+    formReaderDropzone.style.borderColor = 'var(--accent-lime)'
+  }
+  formReaderDropzone.ondragleave = () => {
+    formReaderDropzone.style.borderColor = 'var(--border-subtle)'
+  }
+  formReaderDropzone.ondrop = async (e) => {
+    e.preventDefault()
+    formReaderDropzone.style.borderColor = 'var(--border-subtle)'
+    if (e.dataTransfer?.files) {
+      await addPcImageFiles(e.dataTransfer.files)
+    }
+  }
+}
+
+// Allow Ctrl+V image paste when Form Reader tab is active
+window.addEventListener('paste', async (e: ClipboardEvent) => {
+  if (!viewFormReader || !viewFormReader.classList.contains('active')) return
+  const items = e.clipboardData?.items
+  if (!items) return
+  const imgFiles: File[] = []
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith('image/')) {
+      const f = item.getAsFile()
+      if (f) imgFiles.push(f)
+    }
+  }
+  if (imgFiles.length > 0) {
+    e.preventDefault()
+    await addPcImageFiles(imgFiles)
+    showToast(`${imgFiles.length} görsel yapıştırıldı.`, 'info')
+  }
+})
+
+if (btnFormReaderClearPc) {
+  btnFormReaderClearPc.onclick = () => {
+    pcPhotos = []
+    renderPcThumbs()
+    if (formReaderRawText) formReaderRawText.value = ''
+    if (formReaderPcStatus) formReaderPcStatus.textContent = 'Hazır'
+  }
+}
+
+if (btnFormReaderSubmitPc) {
+  btnFormReaderSubmitPc.onclick = async () => {
+    const rawText = formReaderRawText ? formReaderRawText.value.trim() : ''
+    if (pcPhotos.length === 0 && !rawText) {
+      showToast('Lütfen önce fotoğraf ekleyin veya metin yapıştırın.', 'error')
+      return
+    }
+    if (formReaderInlineApiKey) {
+      const inlineKey = formReaderInlineApiKey.value.trim()
+      if (sFormReaderApiKey && inlineKey !== sFormReaderApiKey.value.trim()) {
+        sFormReaderApiKey.value = inlineKey
+        const s = await api.getSettings()
+        await api.saveSettings({ ...s, formReaderApiKey: inlineKey })
+      }
+    }
+    btnFormReaderSubmitPc.disabled = true
+    if (formReaderPcStatus) formReaderPcStatus.textContent = 'Gemini okuyor, lütfen bekleyin...'
+    try {
+      const res = await api.processFormFromPc({
+        photos: pcPhotos.length > 0 ? pcPhotos.map((p) => ({ base64: p.base64, mime: p.mime })) : undefined,
+        rawText: pcPhotos.length === 0 ? rawText : undefined
+      })
+      if (!res?.ok) {
+        if (formReaderPcStatus) formReaderPcStatus.textContent = 'Hata oluştu'
+        showToast(res?.error || 'Form ayrıştırılamadı.', 'error')
+        return
+      }
+      if (formReaderPcStatus) formReaderPcStatus.textContent = '✓ Panoya kopyalandı!'
+      pcPhotos = []
+      renderPcThumbs()
+      if (formReaderRawText) formReaderRawText.value = ''
+    } catch (e: any) {
+      if (formReaderPcStatus) formReaderPcStatus.textContent = 'Hata'
+      showToast('Hata: ' + (e?.message || e), 'error')
+    } finally {
+      btnFormReaderSubmitPc.disabled = false
+    }
+  }
+}
+
+if (btnFormReaderCopyResult && formReaderResultText) {
+  btnFormReaderCopyResult.onclick = () => {
+    const val = formReaderResultText.value.trim()
+    if (!val) return
+    navigator.clipboard.writeText(val)
+    showToast('Form metni panoya kopyalandı!', 'success')
+  }
+}
+
+api.onFormReaderResult((ev: any) => {
+  if (!ev || !ev.text) return
+  if (formReaderResultText) formReaderResultText.value = ev.text
+  if (formReaderLastMeta) {
+    const srcLabel =
+      ev.source === 'phone-photo'
+        ? '📱 Telefondan (Fotoğraf)'
+        : ev.source === 'phone-clip'
+          ? '📱 Telefondan (Metin)'
+          : '💻 Bilgisayardan'
+    formReaderLastMeta.textContent = `${srcLabel} • ${formatDate(ev.timestamp)}`
+  }
+  playFormReadyChime()
+  const firstLine = (ev.text.split(/\r?\n/)[0] || '').replace('Müşteri Adı Soyadı:', '').trim()
+  showToast(
+    `📄 Form panoya kopyalandı${firstLine ? `: ${firstLine}` : '!'}`,
+    'success'
+  )
+})
 
 // ── Init ──
 loadSettingsToUI()

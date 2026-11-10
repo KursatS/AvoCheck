@@ -67,5 +67,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteSnippet: (id: string) => safeInvoke('delete-snippet', id),
     toggleSnippet: (id: string, enabled?: boolean) => safeInvoke('toggle-snippet', id, enabled),
     setSnippetsGlobalEnabled: (enabled: boolean) => safeInvoke('set-snippets-global-enabled', enabled),
-    setSnippetsDefaultPrefix: (prefix: string) => safeInvoke('set-snippets-default-prefix', prefix)
+    setSnippetsDefaultPrefix: (prefix: string) => safeInvoke('set-snippets-default-prefix', prefix),
+
+    // AI Form Reader (OCR & Form Parser)
+    getFormReaderStatus: () => safeInvoke('form-reader:status'),
+    startFormReader: () => safeInvoke('form-reader:start'),
+    stopFormReader: () => safeInvoke('form-reader:stop'),
+    processFormFromPc: (payload: any) => safeInvoke('form-reader:process-pc', payload),
+    openFormReaderFolder: () => safeInvoke('form-reader:open-folder'),
+    onFormReaderResult: (callback: any) =>
+        ipcRenderer.on('form-reader:result', (_event, data) => callback(data))
 })

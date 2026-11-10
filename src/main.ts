@@ -8,7 +8,8 @@ import {
   globalShortcut,
   net,
   dialog,
-  BrowserWindow
+  BrowserWindow,
+  shell
 } from 'electron';
 import * as path from 'path';
 import { is } from '@electron-toolkit/utils';
@@ -26,6 +27,7 @@ import { WindowManager } from './windowManager';
 import { loadSettings, saveSettings, AppSettings } from './settingsManager';
 import { ClipboardMonitor } from './clipboardMonitor';
 import { TextExpanderManager } from './textExpanderManager';
+import { FormReaderManager } from './formReaderServer';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { autoUpdater } from 'electron-updater';
@@ -339,6 +341,39 @@ function setupIpcHandlers() {
   ipcMain.handle('set-snippets-default-prefix', async (_, prefix) => {
     return TextExpanderManager.getInstance().setDefaultPrefix(prefix);
   });
+
+  // AI Form Reader (OCR & Form Parser) — Manual Start Only
+  const formReader = FormReaderManager.getInstance();
+  formReader.onResult((ev) => {
+    const win = windowManager?.getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('form-reader:result', ev);
+    }
+  });
+
+  ipcMain.handle('form-reader:status', async () => {
+    return formReader.getStatus();
+  });
+
+  ipcMain.handle('form-reader:start', async () => {
+    currentSettings = loadSettings();
+    return formReader.start(currentSettings.formReaderApiKey);
+  });
+
+  ipcMain.handle('form-reader:stop', async () => {
+    return formReader.stop();
+  });
+
+  ipcMain.handle('form-reader:process-pc', async (_, payload) => {
+    currentSettings = loadSettings();
+    return formReader.processFromPc(payload, currentSettings.formReaderApiKey);
+  });
+
+  ipcMain.handle('form-reader:open-folder', async () => {
+    const dir = formReader.getSaveDir();
+    await shell.openPath(dir);
+    return { ok: true, path: dir };
+  });
 }
 
 function registerShortcuts() {
@@ -517,6 +552,7 @@ app.whenReady().then(() => {
 app.on('will-quit', () => {
   clipboardMonitor?.stop();
   TextExpanderManager.getInstance().stop();
+  FormReaderManager.getInstance().stop();
   globalShortcut.unregisterAll();
   if (statusInterval) clearInterval(statusInterval);
 });
