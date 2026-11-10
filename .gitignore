@@ -48,6 +48,7 @@ backup/
 
 # Logs & Temporary Files
 logs/
+.superpowers/
 *.log
 *.tmp
 scratch*
