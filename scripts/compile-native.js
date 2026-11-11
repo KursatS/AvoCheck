@@ -33,7 +33,7 @@ function compileNative() {
     }
 
     console.log('[compile-native] Compiling TextExpander.cs with:', cscPath);
-    execSync(`"${cscPath}" /nologo /target:winexe /out:"${outPath}" "${csPath}"`, { stdio: 'inherit' });
+    execSync(`"${cscPath}" /nologo /target:winexe /r:System.Web.Extensions.dll /out:"${outPath}" "${csPath}"`, { stdio: 'inherit' });
     console.log('[compile-native] TextExpander.exe compiled successfully to:', outPath);
 }
 

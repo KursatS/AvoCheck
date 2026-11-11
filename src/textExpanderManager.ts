@@ -142,16 +142,23 @@ export class TextExpanderManager {
         const localPath = path.join(app.getAppPath(), 'resources', 'TextExpander.exe');
         if (fs.existsSync(localPath)) return localPath;
 
+        const devRelativePath = path.join(__dirname, '..', '..', 'resources', 'TextExpander.exe');
+        if (fs.existsSync(devRelativePath)) return devRelativePath;
+
         // 3. Fallback compile if in dev mode
         const csPath = path.join(app.getAppPath(), 'src', 'native', 'TextExpander.cs');
         if (fs.existsSync(csPath)) {
             try {
                 const resDir = path.join(app.getAppPath(), 'resources');
                 if (!fs.existsSync(resDir)) fs.mkdirSync(resDir, { recursive: true });
-                const cscPath = 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe';
-                if (fs.existsSync(cscPath)) {
+                const cscCandidates = [
+                    'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe',
+                    'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe'
+                ];
+                const cscPath = cscCandidates.find(p => fs.existsSync(p));
+                if (cscPath) {
                     console.log('[TextExpander] Compiling TextExpander.cs on demand...');
-                    execSync(`"${cscPath}" /nologo /target:winexe /out:"${localPath}" "${csPath}"`);
+                    execSync(`"${cscPath}" /nologo /target:winexe /r:System.Web.Extensions.dll /out:"${localPath}" "${csPath}"`);
                     if (fs.existsSync(localPath)) return localPath;
                 }
             } catch (err) {
@@ -163,6 +170,7 @@ export class TextExpanderManager {
     }
 
     public start(): void {
+        this.isStopping = false;
         if (this.process) return;
 
         const exePath = this.getExecutablePath();
@@ -244,7 +252,11 @@ export class TextExpanderManager {
     public setGlobalEnabled(enabled: boolean): boolean {
         this.config.enabled = enabled;
         this.saveConfigToFile(this.config);
-        this.syncConfigToProcess();
+        if (enabled && !this.process) {
+            this.start();
+        } else {
+            this.syncConfigToProcess();
+        }
         return this.config.enabled;
     }
 

@@ -6,6 +6,8 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading;
+using System.Globalization;
+using System.Web.Script.Serialization;
 
 namespace RecciTekTextExpander
 {
@@ -16,6 +18,12 @@ namespace RecciTekTextExpander
         public string trigger { get; set; }
         public string replacement { get; set; }
         public bool enabled { get; set; }
+    }
+
+    public class ExpanderConfig
+    {
+        public bool enabled { get; set; }
+        public List<SnippetItem> snippets { get; set; }
     }
 
     class Program
@@ -48,6 +56,9 @@ namespace RecciTekTextExpander
         private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(IntPtr lpModuleName);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
         [DllImport("user32.dll", SetLastError = true)]
@@ -68,6 +79,9 @@ namespace RecciTekTextExpander
         [DllImport("user32.dll", SetLastError = true)]
         private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr GetClipboardData(uint uFormat);
+
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
 
@@ -81,15 +95,6 @@ namespace RecciTekTextExpander
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GlobalFree(IntPtr hMem);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern UIntPtr GlobalSize(IntPtr hMem);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern uint EnumClipboardFormats(uint format);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern IntPtr GetClipboardData(uint uFormat);
-
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern uint RegisterClipboardFormat(string lpszFormat);
 
@@ -100,13 +105,28 @@ namespace RecciTekTextExpander
         private static extern int ToUnicode(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pwszBuff, int cchBuff, uint wFlags);
 
         [DllImport("user32.dll")]
+        private static extern int ToUnicodeEx(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pwszBuff, int cchBuff, uint wFlags, IntPtr dwhkl);
+
+        [DllImport("user32.dll")]
         private static extern bool GetKeyboardState(byte[] lpKeyState);
 
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
 
         [DllImport("user32.dll")]
+        private static extern short GetKeyState(int vKey);
+
+        [DllImport("user32.dll")]
         private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr lpdwProcessId);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetKeyboardLayout(uint idThread);
 
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -117,6 +137,7 @@ namespace RecciTekTextExpander
         private const ushort VK_SHIFT = 0x10;
         private const ushort VK_CONTROL = 0x11;
         private const ushort VK_MENU = 0x12;
+        private const ushort VK_CAPITAL = 0x14;
         private const ushort VK_V = 0x56;
 
         private const uint CF_UNICODETEXT = 13;
@@ -174,7 +195,6 @@ namespace RecciTekTextExpander
                 WriteError("Unhandled: " + (e.ExceptionObject != null ? e.ExceptionObject.ToString() : "Unknown"));
             };
 
-            // Safely initialize stream readers/writers without crashing on invalid console handles
             try
             {
                 _stdinReader = new StreamReader(Console.OpenStandardInput(), Encoding.UTF8);
@@ -254,11 +274,16 @@ namespace RecciTekTextExpander
         {
             try
             {
-                using (var curProcess = Process.GetCurrentProcess())
-                using (var curModule = curProcess.MainModule)
+                IntPtr hMod = GetModuleHandle(IntPtr.Zero);
+                if (hMod == IntPtr.Zero)
                 {
-                    return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+                    using (var curProcess = Process.GetCurrentProcess())
+                    using (var curModule = curProcess.MainModule)
+                    {
+                        hMod = GetModuleHandle(curModule.ModuleName);
+                    }
                 }
+                return SetWindowsHookEx(WH_KEYBOARD_LL, proc, hMod, 0);
             }
             catch (Exception ex)
             {
@@ -298,48 +323,14 @@ namespace RecciTekTextExpander
             {
                 try
                 {
-                    if (json.Contains("\"enabled\":false")) _globalEnabled = false;
-                    else if (json.Contains("\"enabled\":true")) _globalEnabled = true;
-
-                    var newSnippets = new List<SnippetItem>();
-                    int idx = json.IndexOf("\"snippets\":");
-                    if (idx != -1)
+                    var jss = new JavaScriptSerializer();
+                    var cfg = jss.Deserialize<ExpanderConfig>(json);
+                    if (cfg != null)
                     {
-                        int startArr = json.IndexOf('[', idx);
-                        int endArr = json.LastIndexOf(']');
-                        if (startArr != -1 && endArr > startArr)
-                        {
-                            string arrContent = json.Substring(startArr + 1, endArr - startArr - 1);
-                            int itemStart = 0;
-                            while ((itemStart = arrContent.IndexOf('{', itemStart)) != -1)
-                            {
-                                int itemEnd = arrContent.IndexOf('}', itemStart);
-                                if (itemEnd == -1) break;
-                                string itemJson = arrContent.Substring(itemStart, itemEnd - itemStart + 1);
-
-                                string id = ExtractJsonVal(itemJson, "id");
-                                string pfx = ExtractJsonVal(itemJson, "prefix");
-                                string trg = ExtractJsonVal(itemJson, "trigger");
-                                string rep = ExtractJsonVal(itemJson, "replacement");
-                                bool en = !itemJson.Contains("\"enabled\":false");
-
-                                if (!string.IsNullOrEmpty(trg) && !string.IsNullOrEmpty(rep))
-                                {
-                                    newSnippets.Add(new SnippetItem
-                                    {
-                                        id = id,
-                                        prefix = pfx ?? ":",
-                                        trigger = trg,
-                                        replacement = rep,
-                                        enabled = en
-                                    });
-                                }
-                                itemStart = itemEnd + 1;
-                            }
-                        }
+                        _globalEnabled = cfg.enabled;
+                        _snippets = cfg.snippets ?? new List<SnippetItem>();
+                        WriteLine("{\"status\":\"CONFIG_APPLIED\",\"count\":" + _snippets.Count + ",\"globalEnabled\":" + (_globalEnabled ? "true" : "false") + "}");
                     }
-                    _snippets = newSnippets;
-                    WriteLine("{\"status\":\"CONFIG_APPLIED\",\"count\":" + _snippets.Count + "}");
                 }
                 catch (Exception ex)
                 {
@@ -348,52 +339,22 @@ namespace RecciTekTextExpander
             }
         }
 
-        private static string ExtractJsonVal(string json, string key)
-        {
-            string pattern = "\"" + key + "\":\"";
-            int start = json.IndexOf(pattern);
-            if (start == -1) return null;
-            start += pattern.Length;
-            StringBuilder sb = new StringBuilder();
-            bool esc = false;
-            for (int i = start; i < json.Length; i++)
-            {
-                char c = json[i];
-                if (esc)
-                {
-                    if (c == 'n') sb.Append('\n');
-                    else if (c == 'r') sb.Append('\r');
-                    else if (c == 't') sb.Append('\t');
-                    else if (c == '"') sb.Append('"');
-                    else if (c == '\\') sb.Append('\\');
-                    else sb.Append(c);
-                    esc = false;
-                }
-                else if (c == '\\')
-                {
-                    esc = true;
-                }
-                else if (c == '"')
-                {
-                    return sb.ToString();
-                }
-                else
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
-        }
-
         private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
+            try
             {
-                if (!_isExpanding && _globalEnabled)
+                if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
                 {
-                    int vkCode = Marshal.ReadInt32(lParam);
-                    HandleKeyDown(vkCode);
+                    if (!_isExpanding && _globalEnabled)
+                    {
+                        int vkCode = Marshal.ReadInt32(lParam);
+                        HandleKeyDown(vkCode);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                WriteError("HookCallback error: " + ex.Message);
             }
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
@@ -423,9 +384,9 @@ namespace RecciTekTextExpander
 
                 _rollingBuffer.Append(typed);
 
-                if (_rollingBuffer.Length > 40)
+                if (_rollingBuffer.Length > 50)
                 {
-                    _rollingBuffer.Remove(0, _rollingBuffer.Length - 40);
+                    _rollingBuffer.Remove(0, _rollingBuffer.Length - 50);
                 }
 
                 string currentText = _rollingBuffer.ToString();
@@ -436,7 +397,11 @@ namespace RecciTekTextExpander
                     string fullTrigger = (s.prefix ?? "") + s.trigger;
                     if (string.IsNullOrEmpty(fullTrigger)) continue;
 
-                    if (currentText.EndsWith(fullTrigger, StringComparison.OrdinalIgnoreCase))
+                    bool matched = currentText.EndsWith(fullTrigger, StringComparison.CurrentCultureIgnoreCase) ||
+                                   currentText.EndsWith(fullTrigger, StringComparison.InvariantCultureIgnoreCase) ||
+                                   currentText.EndsWith(fullTrigger, StringComparison.OrdinalIgnoreCase);
+
+                    if (matched)
                     {
                         _rollingBuffer.Clear();
                         TriggerExpansion(fullTrigger.Length, s.replacement, s.trigger);
@@ -455,9 +420,26 @@ namespace RecciTekTextExpander
             if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) keyState[VK_CONTROL] = 0x80;
             if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) keyState[VK_MENU] = 0x80;
 
+            if ((GetKeyState(VK_CAPITAL) & 1) != 0) keyState[VK_CAPITAL] = 0x01;
+            else keyState[VK_CAPITAL] = 0x00;
+
             uint scanCode = MapVirtualKey(vk, 0);
             StringBuilder sb = new StringBuilder(10);
-            int res = ToUnicode(vk, scanCode, keyState, sb, sb.Capacity, 0);
+
+            IntPtr fgWnd = GetForegroundWindow();
+            uint fgThread = fgWnd != IntPtr.Zero ? GetWindowThreadProcessId(fgWnd, IntPtr.Zero) : 0;
+            IntPtr layout = fgThread != 0 ? GetKeyboardLayout(fgThread) : IntPtr.Zero;
+
+            int res = 0;
+            if (layout != IntPtr.Zero)
+            {
+                res = ToUnicodeEx(vk, scanCode, keyState, sb, sb.Capacity, 0, layout);
+            }
+            else
+            {
+                res = ToUnicode(vk, scanCode, keyState, sb, sb.Capacity, 0);
+            }
+
             if (res > 0)
             {
                 return sb.ToString();
@@ -467,104 +449,27 @@ namespace RecciTekTextExpander
 
         // ---------------------------------------------------------------
         // Clipboard snapshot / restore
-        // The expansion pastes through the clipboard, so we save whatever
-        // the user had copied and put it back once the paste is done.
         // ---------------------------------------------------------------
+        private const int RESTORE_DELAY_MS = 500;
 
-        // How long to wait after Ctrl+V before restoring (target app must read the clipboard first)
-        private const int RESTORE_DELAY_MS = 300;
-        // Skip snapshot entirely for very large clipboards (e.g. huge Excel ranges)
-        private const long MAX_SNAPSHOT_BYTES = 32L * 1024 * 1024;
-
-        // Standard markers: clipboard monitors (incl. AvoCheck's own) and Win+V history ignore marked content
         private static readonly uint CF_EXCLUDE_MONITOR = RegisterClipboardFormat("ExcludeClipboardContentFromMonitorProcessing");
         private static readonly uint CF_HISTORY = RegisterClipboardFormat("CanIncludeInClipboardHistory");
         private static readonly uint CF_CLOUD = RegisterClipboardFormat("CanUploadToCloudClipboard");
 
-        private sealed class ClipboardSnapshot
-        {
-            public readonly List<KeyValuePair<uint, byte[]>> Items = new List<KeyValuePair<uint, byte[]>>();
-        }
-
         private static readonly object _restoreLock = new object();
-        private static ClipboardSnapshot _pendingSnapshot = null;
+        private static string _pendingTextSnapshot = null;
         private static int _restoreGeneration = 0;
 
         private static bool OpenClipboardWithRetry()
         {
-            // Another app may hold the clipboard for a moment
             for (int retry = 0; retry < 10; retry++)
             {
                 if (OpenClipboard(IntPtr.Zero)) return true;
-                Thread.Sleep(3);
+                Thread.Sleep(5);
             }
             return false;
         }
 
-        // Only formats whose handle is a plain HGLOBAL can be copied byte-for-byte.
-        // GDI handles (bitmap, palette, metafiles) and private formats are skipped;
-        // images still survive because Windows re-synthesizes CF_BITMAP from CF_DIB.
-        private static bool IsCopyableFormat(uint fmt)
-        {
-            if (fmt == 2 || fmt == 3 || fmt == 9 || fmt == 14) return false;      // BITMAP, METAFILEPICT, PALETTE, ENHMETAFILE
-            if (fmt == 0x80 || fmt == 0x82 || fmt == 0x83 || fmt == 0x8E) return false; // OWNERDISPLAY, DSP* formats
-            if (fmt >= 0x0200 && fmt <= 0x03FF) return false;                    // PRIVATEFIRST..GDIOBJLAST
-            if (fmt == CF_EXCLUDE_MONITOR || fmt == CF_HISTORY || fmt == CF_CLOUD) return false;
-            return true;
-        }
-
-        private static ClipboardSnapshot SnapshotClipboard()
-        {
-            if (!OpenClipboardWithRetry()) return null;
-            try
-            {
-                var snap = new ClipboardSnapshot();
-                long total = 0;
-                uint fmt = 0;
-                while ((fmt = EnumClipboardFormats(fmt)) != 0)
-                {
-                    if (!IsCopyableFormat(fmt)) continue;
-
-                    IntPtr h = GetClipboardData(fmt);
-                    if (h == IntPtr.Zero) continue;
-
-                    long size = (long)GlobalSize(h).ToUInt64();
-                    if (size <= 0) continue;
-
-                    total += size;
-                    if (total > MAX_SNAPSHOT_BYTES)
-                    {
-                        WriteError("Clipboard too large to snapshot; it will not be restored.");
-                        return null;
-                    }
-
-                    IntPtr p = GlobalLock(h);
-                    if (p == IntPtr.Zero) continue;
-                    try
-                    {
-                        byte[] data = new byte[size];
-                        Marshal.Copy(p, data, 0, (int)size);
-                        snap.Items.Add(new KeyValuePair<uint, byte[]>(fmt, data));
-                    }
-                    finally
-                    {
-                        GlobalUnlock(h);
-                    }
-                }
-                return snap;
-            }
-            catch (Exception ex)
-            {
-                WriteError("Snapshot error: " + ex.Message);
-                return null;
-            }
-            finally
-            {
-                CloseClipboard();
-            }
-        }
-
-        // Must be called while the clipboard is open. Windows takes ownership on success.
         private static bool PutClipboardBytes(uint fmt, byte[] data)
         {
             IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)Math.Max(data.Length, 1));
@@ -587,26 +492,40 @@ namespace RecciTekTextExpander
             return true;
         }
 
-        // Must be called while the clipboard is open.
         private static void PutIgnoreMarkers()
         {
-            PutClipboardBytes(CF_EXCLUDE_MONITOR, BitConverter.GetBytes(1));
-            PutClipboardBytes(CF_HISTORY, BitConverter.GetBytes(0));
-            PutClipboardBytes(CF_CLOUD, BitConverter.GetBytes(0));
+            if (CF_EXCLUDE_MONITOR != 0) PutClipboardBytes(CF_EXCLUDE_MONITOR, BitConverter.GetBytes(1));
+            if (CF_HISTORY != 0) PutClipboardBytes(CF_HISTORY, BitConverter.GetBytes(0));
+            if (CF_CLOUD != 0) PutClipboardBytes(CF_CLOUD, BitConverter.GetBytes(0));
         }
 
-        private static void RestoreClipboard(ClipboardSnapshot snap)
+        private static string SnapshotClipboardText()
         {
+            if (!OpenClipboardWithRetry()) return null;
+            try
+            {
+                IntPtr h = GetClipboardData(CF_UNICODETEXT);
+                if (h == IntPtr.Zero) return null;
+                return Marshal.PtrToStringUni(h);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                CloseClipboard();
+            }
+        }
+
+        private static void RestoreClipboardText(string originalText)
+        {
+            if (originalText == null) return;
             if (!OpenClipboardWithRetry()) return;
             try
             {
                 EmptyClipboard();
-                foreach (var item in snap.Items)
-                {
-                    PutClipboardBytes(item.Key, item.Value);
-                }
-                // Restored content was already seen by monitors/history; mark it so it isn't processed twice
-                PutIgnoreMarkers();
+                PutClipboardBytes(CF_UNICODETEXT, Encoding.Unicode.GetBytes(originalText + "\0"));
             }
             catch (Exception ex)
             {
@@ -625,9 +544,7 @@ namespace RecciTekTextExpander
             try
             {
                 EmptyClipboard();
-                // UTF-16 null-terminated bytes
                 bool ok = PutClipboardBytes(CF_UNICODETEXT, Encoding.Unicode.GetBytes(text + "\0"));
-                // Snippet text is transient: keep it out of Win+V history and AvoCheck's serial monitor
                 PutIgnoreMarkers();
                 return ok;
             }
@@ -642,30 +559,28 @@ namespace RecciTekTextExpander
             _isExpanding = true;
             Thread pasteThread = new Thread(() =>
             {
-                ClipboardSnapshot snapshot = null;
+                string snapshot = null;
                 int generation = 0;
                 uint seqAfterSet = 0;
                 try
                 {
-                    // 0. Save what the user had copied. If a previous expansion is still waiting
-                    //    to restore, reuse its snapshot (the clipboard currently holds a snippet).
+                    // 0. Save what the user had copied before expansion
                     lock (_restoreLock)
                     {
-                        if (_pendingSnapshot == null) _pendingSnapshot = SnapshotClipboard();
-                        snapshot = _pendingSnapshot;
+                        if (_pendingTextSnapshot == null) _pendingTextSnapshot = SnapshotClipboardText();
+                        snapshot = _pendingTextSnapshot;
                         generation = ++_restoreGeneration;
                     }
 
-                    // 1. Instantly set replacement text to Windows Clipboard via raw Win32 (< 1ms)
+                    // 1. Set replacement text to Windows Clipboard via raw Win32 (< 1ms)
                     bool clipOk = FastSetClipboard(replacement);
                     if (!clipOk)
                     {
-                        // Fallback to WinForms Clipboard if Win32 lock failed
                         try { Clipboard.SetDataObject(replacement, true); } catch { }
                     }
                     seqAfterSet = GetClipboardSequenceNumber();
 
-                    // 2. Batch Send Backspaces atomically via SendInput (0ms latency, zero visible deletion)
+                    // 2. Batch Send Backspaces to remove typed trigger word
                     if (backspaceCount > 0)
                     {
                         INPUT[] bsInputs = new INPUT[backspaceCount * 2];
@@ -682,22 +597,18 @@ namespace RecciTekTextExpander
                         SendInput((uint)bsInputs.Length, bsInputs, Marshal.SizeOf(typeof(INPUT)));
                     }
 
-                    // Micro-pause (5ms) to ensure target app window processes caret position before paste
-                    Thread.Sleep(5);
+                    // Pause (25ms) to ensure target app window / editor caret processes deletion
+                    Thread.Sleep(25);
 
-                    // 3. Check if Shift is physically held down by user (e.g. typing a symbol trigger)
+                    // 3. Send Ctrl+V paste with verified key holding
                     bool shiftWasDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-
-                    var pasteList = new List<INPUT>();
-
-                    // If Shift is down, release it temporarily so Ctrl+V doesn't become Ctrl+Shift+V
                     if (shiftWasDown)
                     {
                         INPUT shiftUp = new INPUT();
                         shiftUp.type = INPUT_KEYBOARD;
                         shiftUp.u.ki.wVk = VK_SHIFT;
                         shiftUp.u.ki.dwFlags = KEYEVENTF_KEYUP;
-                        pasteList.Add(shiftUp);
+                        SendInput(1, new INPUT[] { shiftUp }, Marshal.SizeOf(typeof(INPUT)));
                     }
 
                     // Ctrl Down
@@ -705,41 +616,39 @@ namespace RecciTekTextExpander
                     ctrlDown.type = INPUT_KEYBOARD;
                     ctrlDown.u.ki.wVk = VK_CONTROL;
                     ctrlDown.u.ki.dwFlags = 0;
-                    pasteList.Add(ctrlDown);
+                    SendInput(1, new INPUT[] { ctrlDown }, Marshal.SizeOf(typeof(INPUT)));
 
-                    // V Down
+                    Thread.Sleep(10); // Hold Ctrl down so target app registers modifier
+
+                    // V Down & Up
                     INPUT vDown = new INPUT();
                     vDown.type = INPUT_KEYBOARD;
                     vDown.u.ki.wVk = VK_V;
                     vDown.u.ki.dwFlags = 0;
-                    pasteList.Add(vDown);
 
-                    // V Up
                     INPUT vUp = new INPUT();
                     vUp.type = INPUT_KEYBOARD;
                     vUp.u.ki.wVk = VK_V;
                     vUp.u.ki.dwFlags = KEYEVENTF_KEYUP;
-                    pasteList.Add(vUp);
+                    SendInput(2, new INPUT[] { vDown, vUp }, Marshal.SizeOf(typeof(INPUT)));
+
+                    Thread.Sleep(10);
 
                     // Ctrl Up
                     INPUT ctrlUp = new INPUT();
                     ctrlUp.type = INPUT_KEYBOARD;
                     ctrlUp.u.ki.wVk = VK_CONTROL;
                     ctrlUp.u.ki.dwFlags = KEYEVENTF_KEYUP;
-                    pasteList.Add(ctrlUp);
+                    SendInput(1, new INPUT[] { ctrlUp }, Marshal.SizeOf(typeof(INPUT)));
 
-                    // Restore Shift if user is still holding it
                     if (shiftWasDown && ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0))
                     {
                         INPUT shiftDown = new INPUT();
                         shiftDown.type = INPUT_KEYBOARD;
                         shiftDown.u.ki.wVk = VK_SHIFT;
                         shiftDown.u.ki.dwFlags = 0;
-                        pasteList.Add(shiftDown);
+                        SendInput(1, new INPUT[] { shiftDown }, Marshal.SizeOf(typeof(INPUT)));
                     }
-
-                    INPUT[] pasteInputs = pasteList.ToArray();
-                    SendInput((uint)pasteInputs.Length, pasteInputs, Marshal.SizeOf(typeof(INPUT)));
 
                     WriteLine("{\"event\":\"EXPANDED\",\"trigger\":\"" + triggerName + "\"}");
                 }
@@ -749,25 +658,23 @@ namespace RecciTekTextExpander
                 }
                 finally
                 {
-                    Thread.Sleep(15);
+                    Thread.Sleep(40);
                     _isExpanding = false;
                 }
 
-                // 4. Put the user's original clipboard back once the target app has pasted
+                // 4. Put the user's original clipboard back once the target app has completed paste
                 try
                 {
                     Thread.Sleep(RESTORE_DELAY_MS);
                     lock (_restoreLock)
                     {
-                        // A newer expansion started meanwhile; it owns the restore
                         if (generation != _restoreGeneration) return;
-                        _pendingSnapshot = null;
+                        _pendingTextSnapshot = null;
                     }
 
-                    // Only restore if nobody (user or another app) changed the clipboard since our paste
                     if (snapshot != null && GetClipboardSequenceNumber() == seqAfterSet)
                     {
-                        RestoreClipboard(snapshot);
+                        RestoreClipboardText(snapshot);
                     }
                 }
                 catch (Exception ex)
