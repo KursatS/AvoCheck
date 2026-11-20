@@ -7,10 +7,17 @@ import { getAppDataDir, loadSettings } from './settingsManager';
 import { generateQrSvg } from './qrSvg';
 
 const PORT = 5055;
-const MODEL_NAME = 'gemini-3.6-flash';
-const MAX_RETRIES = 5;
+// Primary + fallback models ordered by Free Tier daily quota (RPD) and speed:
+// 1. gemini-3.5-flash-lite (~500 RPD free tier, cheapest & fastest)
+// 2. gemini-2.5-flash-lite (separate ~500 RPD free tier bucket)
+// 3. gemini-3.8-flash (high-accuracy fallback)
+const MODEL_CHAIN: Array<{ name: string; thinkingLevel?: string }> = [
+  { name: 'gemini-3.5-flash-lite', thinkingLevel: 'minimal' },
+  { name: 'gemini-2.5-flash-lite' },
+  { name: 'gemini-3.8-flash', thinkingLevel: 'low' }
+];
+const MAX_RETRIES_PER_MODEL = 2;
 const RETRY_DELAY_MS = 1000;
-const THINKING_LEVEL = 'minimal';
 const REQUEST_TIMEOUT_S = 25;
 const MAX_OUTPUT_TOKENS = 1024;
 const EXCLUDE_MONITOR_FORMAT = 'ExcludeClipboardContentFromMonitorProcessing';
@@ -168,67 +175,84 @@ async function callGemini(
   systemPrompt: string,
   apiKey: string
 ): Promise<string | null> {
-  let useThinking = true;
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+  const cleanKey = encodeURIComponent(apiKey.trim());
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const t0 = Date.now();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_S * 1000);
+  for (const modelCfg of MODEL_CHAIN) {
+    let useThinking = Boolean(modelCfg.thinkingLevel);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelCfg.name}:generateContent?key=${cleanKey}`;
 
-    try {
-      const generationConfig: Record<string, any> = {
-        temperature: 0.1,
-        maxOutputTokens: MAX_OUTPUT_TOKENS
-      };
-      if (useThinking && THINKING_LEVEL) {
-        generationConfig.thinkingConfig = { thinkingLevel: THINKING_LEVEL };
-      }
+    for (let attempt = 1; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
+      const t0 = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_S * 1000);
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts }],
-          generationConfig
-        }),
-        signal: controller.signal
-      });
+      try {
+        const generationConfig: Record<string, any> = {
+          temperature: 0.1,
+          maxOutputTokens: MAX_OUTPUT_TOKENS
+        };
+        if (useThinking && modelCfg.thinkingLevel) {
+          generationConfig.thinkingConfig = { thinkingLevel: modelCfg.thinkingLevel };
+        }
 
-      clearTimeout(timer);
-      const json: any = await res.json().catch(() => ({}));
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts }],
+            generationConfig
+          }),
+          signal: controller.signal
+        });
 
-      if (!res.ok) {
-        const errMsg = JSON.stringify(json?.error || res.statusText).toLowerCase();
-        console.warn(`[FormReader] Attempt ${attempt} HTTP ${res.status}:`, errMsg);
-        if (useThinking && errMsg.includes('thinking')) {
-          useThinking = false;
+        clearTimeout(timer);
+        const json: any = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          const errMsg = JSON.stringify(json?.error || res.statusText).toLowerCase();
+          console.warn(`[FormReader] [${modelCfg.name}] Attempt ${attempt} HTTP ${res.status}:`, errMsg);
+
+          // Invalid API key -> no point retrying other models
+          if (res.status === 400 && errMsg.includes('api key')) {
+            return null;
+          }
+          // Thinking parameter rejected -> retry same model without thinkingConfig
+          if (useThinking && errMsg.includes('thinking')) {
+            useThinking = false;
+            attempt--; // don't consume retry budget for thinking fallback
+            continue;
+          }
+          // Model retired/not found (404) or quota/rate limit (429) -> immediately fallback to next model
+          if (res.status === 404 || res.status === 429) {
+            console.warn(`[FormReader] [${modelCfg.name}] HTTP ${res.status}, switching to next fallback model...`);
+            break;
+          }
+
+          if (attempt < MAX_RETRIES_PER_MODEL) await sleep(RETRY_DELAY_MS);
           continue;
         }
-        if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS);
-        continue;
+
+        const candidateParts = json?.candidates?.[0]?.content?.parts || [];
+        const resultText = candidateParts
+          .map((p: any) => (typeof p?.text === 'string' && !p?.thought ? p.text : ''))
+          .join('')
+          .trim();
+
+        console.log(`[FormReader] [${modelCfg.name}] duration: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+
+        if (isValidResponse(resultText)) {
+          return resultText;
+        }
+        console.warn(`[FormReader] [${modelCfg.name}] Attempt ${attempt}: response did not match template keys, retrying...`);
+      } catch (err: any) {
+        clearTimeout(timer);
+        console.warn(`[FormReader] [${modelCfg.name}] Attempt ${attempt} error:`, err?.message || err);
       }
 
-      const candidateParts = json?.candidates?.[0]?.content?.parts || [];
-      const resultText = candidateParts
-        .map((p: any) => (typeof p?.text === 'string' && !p?.thought ? p.text : ''))
-        .join('')
-        .trim();
-
-      console.log(`[FormReader] Gemini duration: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-
-      if (isValidResponse(resultText)) {
-        return resultText;
+      if (attempt < MAX_RETRIES_PER_MODEL) {
+        await sleep(RETRY_DELAY_MS);
       }
-      console.warn(`[FormReader] Attempt ${attempt}: response did not match template keys, retrying...`);
-    } catch (err: any) {
-      clearTimeout(timer);
-      console.warn(`[FormReader] Attempt ${attempt} error:`, err?.message || err);
-    }
-
-    if (attempt < MAX_RETRIES) {
-      await sleep(RETRY_DELAY_MS);
     }
   }
   return null;
