@@ -108,9 +108,6 @@ namespace RecciTekTextExpander
         private static extern int ToUnicodeEx(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pwszBuff, int cchBuff, uint wFlags, IntPtr dwhkl);
 
         [DllImport("user32.dll")]
-        private static extern bool GetKeyboardState(byte[] lpKeyState);
-
-        [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
 
         [DllImport("user32.dll")]
@@ -118,6 +115,9 @@ namespace RecciTekTextExpander
 
         [DllImport("user32.dll")]
         private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKeyEx(uint uCode, uint uMapType, IntPtr dwhkl);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
@@ -132,6 +132,7 @@ namespace RecciTekTextExpander
 
         private const uint INPUT_KEYBOARD = 1;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint DONT_CHANGE_KEYBOARD_STATE = 0x00000004;
 
         private const ushort VK_BACK = 0x08;
         private const ushort VK_SHIFT = 0x10;
@@ -139,6 +140,12 @@ namespace RecciTekTextExpander
         private const ushort VK_MENU = 0x12;
         private const ushort VK_CAPITAL = 0x14;
         private const ushort VK_V = 0x56;
+        private const ushort VK_LSHIFT = 0xA0;
+        private const ushort VK_RSHIFT = 0xA1;
+        private const ushort VK_LCONTROL = 0xA2;
+        private const ushort VK_RCONTROL = 0xA3;
+        private const ushort VK_LMENU = 0xA4;
+        private const ushort VK_RMENU = 0xA5;
 
         private const uint CF_UNICODETEXT = 13;
         private const uint GMEM_MOVEABLE = 0x0002;
@@ -347,8 +354,9 @@ namespace RecciTekTextExpander
                 {
                     if (!_isExpanding && _globalEnabled)
                     {
-                        int vkCode = Marshal.ReadInt32(lParam);
-                        HandleKeyDown(vkCode);
+                        int vkCode = Marshal.ReadInt32(lParam, 0);
+                        uint scanCode = (uint)Marshal.ReadInt32(lParam, 4);
+                        HandleKeyDown(vkCode, scanCode);
                     }
                 }
             }
@@ -359,8 +367,15 @@ namespace RecciTekTextExpander
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
 
-        private static void HandleKeyDown(int vkCode)
+        private static void HandleKeyDown(int vkCode, uint hookScanCode)
         {
+            // Ignore pure modifier / Windows keys before calling ToUnicodeEx
+            if (vkCode == 0x10 || vkCode == 0x11 || vkCode == 0x12 || vkCode == 0x14 ||
+                vkCode == 0x5B || vkCode == 0x5C || (vkCode >= 0xA0 && vkCode <= 0xA5))
+            {
+                return;
+            }
+
             lock (_lock)
             {
                 if (vkCode == (int)VK_BACK)
@@ -379,7 +394,7 @@ namespace RecciTekTextExpander
                     return;
                 }
 
-                string typed = GetCharFromVk((uint)vkCode);
+                string typed = GetCharFromVk((uint)vkCode, hookScanCode);
                 if (string.IsNullOrEmpty(typed)) return;
 
                 _rollingBuffer.Append(typed);
@@ -411,33 +426,47 @@ namespace RecciTekTextExpander
             }
         }
 
-        private static string GetCharFromVk(uint vk)
+        private static string GetCharFromVk(uint vk, uint hookScanCode)
         {
             byte[] keyState = new byte[256];
-            GetKeyboardState(keyState);
 
-            if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0) keyState[VK_SHIFT] = 0x80;
-            if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) keyState[VK_CONTROL] = 0x80;
-            if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) keyState[VK_MENU] = 0x80;
+            bool shift = ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0) ||
+                         ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0) ||
+                         ((GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0);
+            bool ctrl = ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) ||
+                        ((GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0) ||
+                        ((GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0);
+            bool alt = ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) ||
+                       ((GetAsyncKeyState(VK_LMENU) & 0x8000) != 0) ||
+                       ((GetAsyncKeyState(VK_RMENU) & 0x8000) != 0);
 
+            // Ignore Ctrl shortcuts (Ctrl+C, Ctrl+V, etc.), while preserving AltGr (Ctrl+Alt)
+            if (ctrl && !alt) return null;
+
+            if (shift) keyState[VK_SHIFT] = 0x80;
+            if (ctrl) keyState[VK_CONTROL] = 0x80;
+            if (alt) keyState[VK_MENU] = 0x80;
             if ((GetKeyState(VK_CAPITAL) & 1) != 0) keyState[VK_CAPITAL] = 0x01;
-            else keyState[VK_CAPITAL] = 0x00;
 
-            uint scanCode = MapVirtualKey(vk, 0);
             StringBuilder sb = new StringBuilder(10);
 
             IntPtr fgWnd = GetForegroundWindow();
             uint fgThread = fgWnd != IntPtr.Zero ? GetWindowThreadProcessId(fgWnd, IntPtr.Zero) : 0;
             IntPtr layout = fgThread != 0 ? GetKeyboardLayout(fgThread) : IntPtr.Zero;
 
+            uint scanCode = hookScanCode != 0
+                ? hookScanCode
+                : (layout != IntPtr.Zero ? MapVirtualKeyEx(vk, 0, layout) : MapVirtualKey(vk, 0));
+
             int res = 0;
             if (layout != IntPtr.Zero)
             {
-                res = ToUnicodeEx(vk, scanCode, keyState, sb, sb.Capacity, 0, layout);
+                // DONT_CHANGE_KEYBOARD_STATE (0x4) prevents ToUnicodeEx from arming Windows dead keys (e.g. Shift+3 '^' on TR-Q)
+                res = ToUnicodeEx(vk, scanCode, keyState, sb, sb.Capacity, DONT_CHANGE_KEYBOARD_STATE, layout);
             }
             else
             {
-                res = ToUnicode(vk, scanCode, keyState, sb, sb.Capacity, 0);
+                res = ToUnicode(vk, scanCode, keyState, sb, sb.Capacity, DONT_CHANGE_KEYBOARD_STATE);
             }
 
             if (res > 0)

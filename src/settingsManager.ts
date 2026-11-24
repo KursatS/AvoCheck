@@ -13,6 +13,8 @@ export interface AppSettings {
   soundEnabled?: boolean;
   formReaderTabEnabled?: boolean;
   formReaderApiKey?: string;
+  formReaderCustomRules?: string;
+  formReaderCustomTemplate?: string;
   shortcuts?: {
     copyModelColor?: string;
     clearCache?: string;
@@ -70,6 +72,8 @@ export function loadSettings(): AppSettings {
     soundEnabled: true,
     formReaderTabEnabled: false,
     formReaderApiKey: '',
+    formReaderCustomRules: '',
+    formReaderCustomTemplate: '',
     shortcuts: {
       copyModelColor: 'CommandOrControl+Shift+C',
       clearCache: 'CommandOrControl+Shift+X',

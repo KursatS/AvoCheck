@@ -26,10 +26,12 @@ const btnExportExcel = document.getElementById('btn-export-excel')
 const tabHistory = document.getElementById('tab-history')!
 const tabSnippets = document.getElementById('tab-snippets')!
 const tabFormReader = document.getElementById('tab-form-reader') as HTMLButtonElement
+const tabAiRules = document.getElementById('tab-ai-rules') as HTMLButtonElement
 const tabSettings = document.getElementById('tab-settings')!
 const viewHistory = document.getElementById('view-history')!
 const viewSnippets = document.getElementById('view-snippets')!
 const viewFormReader = document.getElementById('view-form-reader')!
+const viewAiRules = document.getElementById('view-ai-rules')!
 const viewSettings = document.getElementById('view-settings')!
 
 // Settings Controls
@@ -44,6 +46,9 @@ const sClipboardUpper = document.getElementById('clipboard-upper') as HTMLInputE
 const sSoundEnabled = document.getElementById('sound-enabled') as HTMLInputElement
 const sFormReaderTabEnabled = document.getElementById('form-reader-tab-enabled') as HTMLInputElement
 const sFormReaderApiKey = document.getElementById('form-reader-api-key') as HTMLInputElement
+const btnSettingsToggleApiVis = document.getElementById('btn-settings-toggle-api-vis')
+const btnSettingsSaveApiKey = document.getElementById('btn-settings-save-api-key')
+const btnSettingsOpenAiRules = document.getElementById('btn-settings-open-ai-rules')
 const btnCheckUpdate = document.getElementById('btn-check-update')
 const updateCheckStatus = document.getElementById('update-check-status')
 
@@ -288,33 +293,39 @@ document.querySelectorAll('.filter-chip').forEach((chip: any) => {
 })
 
 // ── Tab Navigation ──
-function switchTab(view: 'history' | 'settings' | 'snippets' | 'form-reader') {
+function switchTab(view: 'history' | 'settings' | 'snippets' | 'form-reader' | 'ai-rules') {
   tabHistory.classList.toggle('active', view === 'history')
   tabSnippets.classList.toggle('active', view === 'snippets')
   if (tabFormReader) tabFormReader.classList.toggle('active', view === 'form-reader')
+  if (tabAiRules) tabAiRules.classList.toggle('active', view === 'ai-rules')
   tabSettings.classList.toggle('active', view === 'settings')
 
   viewHistory.classList.toggle('active', view === 'history')
   viewSnippets.classList.toggle('active', view === 'snippets')
   if (viewFormReader) viewFormReader.classList.toggle('active', view === 'form-reader')
+  if (viewAiRules) viewAiRules.classList.toggle('active', view === 'ai-rules')
   viewSettings.classList.toggle('active', view === 'settings')
 
   if (view === 'snippets') {
     loadSnippetsToUI()
   } else if (view === 'form-reader') {
     refreshFormReaderStatus()
+  } else if (view === 'ai-rules') {
+    loadAiRulesToUI()
   }
 }
 
 tabHistory.onclick = () => switchTab('history')
 tabSnippets.onclick = () => switchTab('snippets')
 if (tabFormReader) tabFormReader.onclick = () => switchTab('form-reader')
+if (tabAiRules) tabAiRules.onclick = () => switchTab('ai-rules')
 tabSettings.onclick = () => switchTab('settings')
 
 api.onSwitchView((view: string) => {
   if (view === 'settings') switchTab('settings')
   else if (view === 'snippets') switchTab('snippets')
   else if (view === 'form-reader') switchTab('form-reader')
+  else if (view === 'ai-rules') switchTab('ai-rules')
   else switchTab('history')
 })
 
@@ -518,6 +529,9 @@ async function loadSettingsToUI() {
   if (tabFormReader) {
     tabFormReader.style.display = s.formReaderTabEnabled === true ? '' : 'none'
   }
+  if (tabAiRules) {
+    tabAiRules.style.display = s.formReaderTabEnabled === true ? '' : 'none'
+  }
 
   clipboardUpperEnabled = s.clipboardUpperEnabled !== false
   updateUpperToggleUI(clipboardUpperEnabled)
@@ -528,7 +542,12 @@ async function loadSettingsToUI() {
 async function saveCurrentSettings() {
   const currentSettings = await api.getSettings()
   const formReaderTabEnabled = sFormReaderTabEnabled ? sFormReaderTabEnabled.checked : Boolean(currentSettings.formReaderTabEnabled)
-  const formReaderApiKey = sFormReaderApiKey ? sFormReaderApiKey.value.trim() : (currentSettings.formReaderApiKey || '')
+  const effectiveKey = (
+    (sFormReaderApiKey ? sFormReaderApiKey.value : '') ||
+    (formReaderInlineApiKey ? formReaderInlineApiKey.value : '') ||
+    currentSettings.formReaderApiKey ||
+    ''
+  ).trim()
 
   const settingsToSave = {
     ...currentSettings,
@@ -544,7 +563,7 @@ async function saveCurrentSettings() {
     clipboardUpperEnabled: sClipboardUpper.checked,
     soundEnabled: sSoundEnabled ? sSoundEnabled.checked : true,
     formReaderTabEnabled,
-    formReaderApiKey
+    formReaderApiKey: effectiveKey
   }
 
   try {
@@ -554,8 +573,14 @@ async function saveCurrentSettings() {
     if (tabFormReader) {
       tabFormReader.style.display = formReaderTabEnabled ? '' : 'none'
     }
-    if (formReaderInlineApiKey) {
-      formReaderInlineApiKey.value = formReaderApiKey
+    if (tabAiRules) {
+      tabAiRules.style.display = formReaderTabEnabled ? '' : 'none'
+    }
+    if (sFormReaderApiKey && sFormReaderApiKey.value.trim() !== effectiveKey) {
+      sFormReaderApiKey.value = effectiveKey
+    }
+    if (formReaderInlineApiKey && formReaderInlineApiKey.value.trim() !== effectiveKey) {
+      formReaderInlineApiKey.value = effectiveKey
     }
     showToast('Ayarlar kaydedildi.', 'success')
   } catch (e: any) {
@@ -580,7 +605,31 @@ sPreventDuplicate.addEventListener('change', () => triggerAutoSave(0))
 sClipboardUpper.addEventListener('change', () => triggerAutoSave(0))
 if (sSoundEnabled) sSoundEnabled.addEventListener('change', () => triggerAutoSave(0))
 if (sFormReaderTabEnabled) sFormReaderTabEnabled.addEventListener('change', () => triggerAutoSave(0))
-if (sFormReaderApiKey) sFormReaderApiKey.addEventListener('input', () => triggerAutoSave(600))
+if (sFormReaderApiKey) {
+  sFormReaderApiKey.addEventListener('input', () => {
+    if (formReaderInlineApiKey) formReaderInlineApiKey.value = sFormReaderApiKey.value
+    triggerAutoSave(600)
+  })
+}
+if (btnSettingsToggleApiVis && sFormReaderApiKey) {
+  btnSettingsToggleApiVis.onclick = () => {
+    const isPwd = sFormReaderApiKey.type === 'password'
+    sFormReaderApiKey.type = isPwd ? 'text' : 'password'
+    if (formReaderInlineApiKey) formReaderInlineApiKey.type = isPwd ? 'text' : 'password'
+  }
+}
+if (btnSettingsSaveApiKey && sFormReaderApiKey) {
+  btnSettingsSaveApiKey.onclick = async () => {
+    const key = sFormReaderApiKey.value.trim()
+    if (formReaderInlineApiKey) formReaderInlineApiKey.value = key
+    const currentSettings = await api.getSettings()
+    await api.saveSettings({ ...currentSettings, formReaderApiKey: key })
+    showToast('Gemini API anahtarı kaydedildi.', 'success')
+  }
+}
+if (btnSettingsOpenAiRules) {
+  btnSettingsOpenAiRules.onclick = () => switchTab('ai-rules')
+}
 
 function setupShortcutRecorder(input: HTMLInputElement) {
   if (!input) return
@@ -1166,6 +1215,11 @@ if (btnSaveFormApiKey && formReaderInlineApiKey) {
     showToast('Gemini API anahtarı kaydedildi.', 'success')
   }
 }
+if (formReaderInlineApiKey) {
+  formReaderInlineApiKey.addEventListener('input', () => {
+    if (sFormReaderApiKey) sFormReaderApiKey.value = formReaderInlineApiKey.value
+  })
+}
 
 if (btnFormReaderToggle) {
   btnFormReaderToggle.onclick = async () => {
@@ -1209,6 +1263,138 @@ if (btnFormReaderCopyUrl) {
 if (btnFormReaderOpenFolder) {
   btnFormReaderOpenFolder.onclick = () => {
     api.openFormReaderFolder()
+  }
+}
+
+// ── AI Kuralları & Şablon Yönetimi Sayfası ──
+const btnOpenAiRules = document.getElementById('btn-open-ai-rules')
+const btnAiRulesBack = document.getElementById('btn-ai-rules-back')
+const btnPresetDetailed = document.getElementById('btn-preset-detailed')
+const btnPresetConcise = document.getElementById('btn-preset-concise')
+const btnResetAiRules = document.getElementById('btn-reset-ai-rules')
+const btnSaveAiRules = document.getElementById('btn-save-ai-rules')
+const aiRulesInput = document.getElementById('ai-rules-input') as HTMLTextAreaElement
+const aiTemplateInput = document.getElementById('ai-template-input') as HTMLTextAreaElement
+const aiRulesBadge = document.getElementById('ai-rules-badge')
+const aiRulesSaveStatus = document.getElementById('ai-rules-save-status')
+
+let cachedFormReaderDefaults: { defaultRules: string; detailedRules: string; defaultTemplate: string } | null = null
+
+async function getFormReaderDefaultsCached() {
+  if (!cachedFormReaderDefaults) {
+    cachedFormReaderDefaults = await api.getFormReaderDefaults()
+  }
+  return cachedFormReaderDefaults!
+}
+
+function updateAiRulesBadge(isCustom: boolean) {
+  if (!aiRulesBadge) return
+  aiRulesBadge.textContent = isCustom ? 'ÖZEL KURAL AKTİF' : 'VARSAYILAN'
+  aiRulesBadge.style.background = isCustom ? 'rgba(16, 185, 129, 0.18)' : ''
+  aiRulesBadge.style.color = isCustom ? '#10b981' : ''
+  aiRulesBadge.style.borderColor = isCustom ? 'rgba(16, 185, 129, 0.4)' : ''
+}
+
+async function loadAiRulesToUI() {
+  try {
+    const [s, defaults] = await Promise.all([api.getSettings(), getFormReaderDefaultsCached()])
+    const customRules = (s.formReaderCustomRules || '').trim()
+    const customTpl = (s.formReaderCustomTemplate || '').trim()
+
+    if (aiRulesInput) aiRulesInput.value = customRules || defaults.defaultRules
+    if (aiTemplateInput) aiTemplateInput.value = customTpl || defaults.defaultTemplate
+
+    const isCustom = Boolean(customRules || customTpl)
+    updateAiRulesBadge(isCustom)
+    if (aiRulesSaveStatus) {
+      aiRulesSaveStatus.textContent = isCustom
+        ? 'Özel kurallarınız aktif ve kayıtlı.'
+        : 'Varsayılan kurallar aktif. Düzenleyip kaydedebilirsiniz.'
+    }
+  } catch (err) {
+    console.error('Failed to load AI rules:', err)
+  }
+}
+
+if (btnOpenAiRules) {
+  btnOpenAiRules.onclick = () => switchTab('ai-rules')
+}
+if (btnAiRulesBack) {
+  btnAiRulesBack.onclick = () => switchTab('form-reader')
+}
+
+if (btnPresetDetailed) {
+  btnPresetDetailed.onclick = async () => {
+    const defaults = await getFormReaderDefaultsCached()
+    if (aiRulesInput) aiRulesInput.value = defaults.detailedRules
+    if (aiRulesSaveStatus) {
+      aiRulesSaveStatus.textContent = 'Detaylı aktarım profili yüklendi — kaydetmeyi unutmayın.'
+    }
+    showToast('Detaylı aktarım profili yüklendi. Geçerli olması için "Kuralları Kaydet" butonuna basın.', 'info')
+  }
+}
+
+if (btnPresetConcise) {
+  btnPresetConcise.onclick = async () => {
+    const defaults = await getFormReaderDefaultsCached()
+    if (aiRulesInput) aiRulesInput.value = defaults.defaultRules
+    if (aiRulesSaveStatus) {
+      aiRulesSaveStatus.textContent = 'Kısa servis notu profili yüklendi — kaydetmeyi unutmayın.'
+    }
+    showToast('Kısa servis notu profili yüklendi. Geçerli olması için "Kuralları Kaydet" butonuna basın.', 'info')
+  }
+}
+
+if (btnSaveAiRules) {
+  btnSaveAiRules.onclick = async () => {
+    const defaults = await getFormReaderDefaultsCached()
+    const rulesVal = (aiRulesInput?.value || '').trim()
+    const tplVal = (aiTemplateInput?.value || '').trim()
+
+    const savedRules = rulesVal === defaults.defaultRules ? '' : rulesVal
+    const savedTpl = tplVal === defaults.defaultTemplate ? '' : tplVal
+
+    const currentSettings = await api.getSettings()
+    await api.saveSettings({
+      ...currentSettings,
+      formReaderCustomRules: savedRules,
+      formReaderCustomTemplate: savedTpl
+    })
+
+    const isCustom = Boolean(savedRules || savedTpl)
+    updateAiRulesBadge(isCustom)
+    if (aiRulesSaveStatus) {
+      aiRulesSaveStatus.textContent = isCustom
+        ? '✓ Özel kurallar kaydedildi (anında aktif).'
+        : '✓ Varsayılan kurallar kaydedildi.'
+    }
+    showToast('Yapay zeka kuralları kaydedildi! Yeni okumalarda anında geçerli olacak.', 'success')
+  }
+}
+
+if (btnResetAiRules) {
+  btnResetAiRules.onclick = async () => {
+    const confirmed = await showConfirm(
+      'Varsayılana Sıfırla',
+      'Yapay zeka kurallarını ve şablonu fabrika ayarlarına döndürmek istediğinize emin misiniz?',
+      'Evet, Sıfırla'
+    )
+    if (!confirmed) return
+
+    const defaults = await getFormReaderDefaultsCached()
+    const currentSettings = await api.getSettings()
+    await api.saveSettings({
+      ...currentSettings,
+      formReaderCustomRules: '',
+      formReaderCustomTemplate: ''
+    })
+    if (aiRulesInput) aiRulesInput.value = defaults.defaultRules
+    if (aiTemplateInput) aiTemplateInput.value = defaults.defaultTemplate
+    updateAiRulesBadge(false)
+    if (aiRulesSaveStatus) {
+      aiRulesSaveStatus.textContent = 'Varsayılan kurallara döndürüldü.'
+    }
+    showToast('Yapay zeka kuralları varsayılana sıfırlandı.', 'info')
   }
 }
 

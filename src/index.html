@@ -1068,6 +1068,10 @@
         <span>📄</span>
         <span>Form Okuyucu</span>
       </button>
+      <button class="tab-btn" data-view="ai-rules" id="tab-ai-rules" style="display:none;">
+        <span>🧠</span>
+        <span>AI Kuralları</span>
+      </button>
       <button class="tab-btn" data-view="settings" id="tab-settings">
         <span>⚙️</span>
         <span>Ayarlar</span>
@@ -1305,6 +1309,9 @@
               <button type="button" id="btn-form-reader-open-folder" class="btn" title="Kaydedilen form fotoğrafları klasörünü aç">
                 <span>📂 Kayıtlar Klasörü</span>
               </button>
+              <button type="button" id="btn-open-ai-rules" class="btn" title="Yapay zekanın formu nasıl özetleyeceğini ve yazacağını düzenle">
+                <span>🧠 Yapay Zeka Kuralları</span>
+              </button>
             </div>
           </div>
 
@@ -1367,6 +1374,72 @@
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
               <button type="button" id="btn-form-reader-copy-result" class="btn" style="background: var(--pill-active-bg); color: var(--pill-active-text); border-color: transparent;">
                 <span>📋 Panoya Kopyala</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- View 2.6: AI Rules & Template Configuration -->
+    <section id="view-ai-rules" class="view-section">
+      <div class="snippets-container">
+        <div class="snippets-hero-banner" style="flex-direction: column; align-items: stretch; gap: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div class="snippets-hero-title" style="margin-bottom: 4px;">
+                <span>🧠</span>
+                <span>Yapay Zeka Kuralları & Şablon Yönetimi</span>
+                <span id="ai-rules-badge" class="badge-lite" style="font-size: 0.72rem; padding: 4px 10px;">VARSAYILAN</span>
+              </div>
+              <div class="snippets-hero-desc">
+                Gemini form okuyucunun el yazısı ve metinleri nasıl işleyeceğini (özetleme uzunluğu, üslup, maddeleme vb.) buradan manuel olarak düzenleyin. Kaydettiğiniz kurallar hem telefondan (<code>:5055</code>) hem bilgisayardan gelen tüm okumalarda yeniden başlatma gerekmeden anında geçerli olur.
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <button type="button" id="btn-ai-rules-back" class="btn">
+              <span>← Form Okuyucuya Dön</span>
+            </button>
+            <button type="button" id="btn-preset-detailed" class="btn" title="Uzun açıklamaları özetlemeden eksiksiz aktaran hazır profili yükle">
+              <span>📝 Hazır Profil: Detaylı Aktar (Özetleme Yapma)</span>
+            </button>
+            <button type="button" id="btn-preset-concise" class="btn" title="Varsayılan kısa teknisyen fişi notu profilini yükle">
+              <span>⚡ Hazır Profil: Kısa Servis Notu</span>
+            </button>
+            <button type="button" id="btn-reset-ai-rules" class="btn btn-danger" title="Tüm özel kuralları silip fabrika ayarlarına dön">
+              <span>🔄 Varsayılana Sıfırla</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start;">
+          <!-- Left: AI Rules -->
+          <div class="snippet-form-card">
+            <div class="snippet-card-title">
+              <span>✍️ Yapay Zeka Yazım ve Ayrıştırma Kuralları (Rules)</span>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45;">
+              Uzun yazıları tek cümleye sığdırmaması, maddeleme yapması veya istediğiniz üslupta yazması için kuralları aşağıdan dilediğiniz gibi düzenleyin.
+            </div>
+            <textarea id="ai-rules-input" class="snippet-textarea" style="min-height: 320px; max-height: none; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; line-height: 1.55;" placeholder="Yapay zeka kurallarını buraya yazın..."></textarea>
+          </div>
+
+          <!-- Right: Output Template + Save -->
+          <div class="snippet-form-card">
+            <div class="snippet-card-title">
+              <span>📋 Çıktı Şablonu (Alan İsimleri)</span>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45;">
+              Yapay zekanın üreteceği şablon yapısı. Not: Tampermonkey entegrasyonu kullanıyorsanız alan başlıklarını (<code>Müşteri Adı Soyadı:</code>, <code>Telefon:</code>, <code>Şikayet / Arıza:</code> vb.) korumanız önerilir.
+            </div>
+            <textarea id="ai-template-input" class="snippet-textarea" style="min-height: 220px; max-height: none; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; line-height: 1.55;" placeholder="Çıktı şablonunu buraya yazın..."></textarea>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--border-subtle);">
+              <span id="ai-rules-save-status" style="font-size: 0.8rem; color: var(--text-secondary); flex: 1;">Değişiklik yapıp kaydedin.</span>
+              <button type="button" id="btn-save-ai-rules" class="btn" style="background: var(--pill-active-bg); color: var(--pill-active-text); border-color: transparent; padding: 10px 24px;">
+                <span>💾 Kuralları Kaydet</span>
               </button>
             </div>
           </div>
@@ -1558,8 +1631,19 @@
               <div class="setting-title">Gemini API Anahtarı</div>
               <div class="setting-desc">Form okuyucuyu kullanacak personel için kişisel Gemini API anahtarı</div>
             </div>
+            <div class="setting-control" style="display: flex; align-items: center; gap: 8px;">
+              <input type="password" id="form-reader-api-key" placeholder="API Anahtarı girin..." class="shortcut-input" style="width: 220px; text-align: left;">
+              <button type="button" id="btn-settings-toggle-api-vis" class="btn" title="Göster / Gizle" style="padding: 8px 10px;">👁️</button>
+              <button type="button" id="btn-settings-save-api-key" class="btn" style="padding: 8px 14px;">💾 Kaydet</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-title">Yapay Zeka Kuralları (Prompt & Şablon)</div>
+              <div class="setting-desc">Form metninin özetlenme şeklini, uzunluğunu ve çıktı şablonunu manuel düzenleyin</div>
+            </div>
             <div class="setting-control">
-              <input type="password" id="form-reader-api-key" placeholder="API Anahtarı girin..." class="shortcut-input" style="width: 260px; text-align: left;">
+              <button type="button" id="btn-settings-open-ai-rules" class="btn">🧠 Kuralları Düzenle</button>
             </div>
           </div>
         </div>

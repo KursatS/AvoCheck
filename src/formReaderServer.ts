@@ -19,7 +19,7 @@ const MODEL_CHAIN: Array<{ name: string; thinkingLevel?: string }> = [
 const MAX_RETRIES_PER_MODEL = 2;
 const RETRY_DELAY_MS = 1000;
 const REQUEST_TIMEOUT_S = 25;
-const MAX_OUTPUT_TOKENS = 1024;
+const MAX_OUTPUT_TOKENS = 2048;
 const EXCLUDE_MONITOR_FORMAT = 'ExcludeClipboardContentFromMonitorProcessing';
 
 export const FORM_TEMPLATE = `Müşteri Adı Soyadı: [Tespit edilen isim soyisim, bulunamazsa 'Belirtilmemiş']
@@ -47,19 +47,42 @@ export const COMPLAINT_RULES = `
 "şarj oluyor ama 5 dakikada bitiyor" -> Şarj 5 dakikada bitiyor
 `;
 
-export const SYSTEM_PROMPT = `Sen teknik servis kayıt ve kabul biriminde çalışan profesyonel bir personelsin.
+export const DETAILED_COMPLAINT_RULES = `
+ŞİKAYET / ARIZA YAZIM KURALLARI:
+- Müşterinin yazdığı tüm arıza belirtilerini, parça adlarını, hangi koşullarda sorun yaşandığını ve geçmiş detayları ÖZETLEMEDEN, eksiksiz ve anlaşılır şekilde aktar.
+- Uzun bir açıklamayı tek cümleye sıkıştırma; birden fazla sorun veya paragraf varsa maddeler halinde veya akıcı cümlelerle tüm teknik detayları koru.
+- Sadece OCR kaynaklı harf/yazım hatalarını düzelt; müşterinin anlatmak istediği hiçbir detayı atlama.
+- Müşterinin açık bir talebi varsa (değişim, iade, onarım, fiyat bilgisi vb.) mutlaka belirt.
+- Kendi yorumunu, sebep tahminini veya formda olmayan bir bilgiyi ekleme.
+`;
+
+export function buildFormReaderPrompts(customRules?: string, customTemplate?: string): {
+  textPrompt: string;
+  imagePrompt: string;
+  template: string;
+} {
+  const tpl = customTemplate && customTemplate.trim() ? customTemplate.trim() + '\n' : FORM_TEMPLATE;
+  const rules = customRules && customRules.trim() ? '\n' + customRules.trim() + '\n' : COMPLAINT_RULES;
+
+  const textPrompt = `Sen teknik servis kayıt ve kabul biriminde çalışan profesyonel bir personelsin.
 Sana kağıttan OCR ile taranmış ham metin verilecek. 
 Bu metindeki yazım hatalarını düzelterek ve bilgileri ayıklayarak SADECE aşağıdaki şablonda çıktı üret. 
 Açıklama, selamlama veya fazladan metin ekleme:
 
-` + FORM_TEMPLATE + COMPLAINT_RULES;
+` + tpl + rules;
 
-export const IMAGE_SYSTEM_PROMPT = `Sen teknik servis kayıt ve kabul biriminde çalışan profesyonel bir personelsin.
+  const imagePrompt = `Sen teknik servis kayıt ve kabul biriminde çalışan profesyonel bir personelsin.
 Sana bir müşteri formuna/kağıdına ait bir veya birkaç sayfanın fotoğrafı verilecek. Sayfaların hepsi AYNI müşteriye aittir, hepsini tek bir form olarak birlikte değerlendir.
 Fotoğraflardaki (el yazısı dahil) metni oku, yazım hatalarını düzelterek ve bilgileri ayıklayarak SADECE aşağıdaki şablonda çıktı üret. 
 Açıklama, selamlama veya fazladan metin ekleme:
 
-` + FORM_TEMPLATE + COMPLAINT_RULES;
+` + tpl + rules;
+
+  return { textPrompt, imagePrompt, template: tpl };
+}
+
+export const SYSTEM_PROMPT = buildFormReaderPrompts().textPrompt;
+export const IMAGE_SYSTEM_PROMPT = buildFormReaderPrompts().imagePrompt;
 
 export const REQUIRED_KEYS = [
   'Müşteri Adı Soyadı:',
@@ -89,9 +112,19 @@ export interface FormReaderResultEvent {
   timestamp: string;
 }
 
-export function isValidResponse(text: string): boolean {
-  if (!text || text.trim().length < 30) return false;
-  return REQUIRED_KEYS.every((key) => text.includes(key));
+export function isValidResponse(text: string, activeTemplate?: string): boolean {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!activeTemplate || REQUIRED_KEYS.every((k) => activeTemplate.includes(k))) {
+    if (trimmed.length < 30) return false;
+    return REQUIRED_KEYS.every((key) => trimmed.includes(key));
+  }
+  if (trimmed.length < 10) return false;
+  const labels = Array.from(activeTemplate.matchAll(/^([^:\r\n\[{]{2,40}:)/gm)).map((m) => m[1]);
+  if (labels.length > 0) {
+    return labels.every((lbl) => trimmed.includes(lbl));
+  }
+  return true;
 }
 
 export function parseMultipartPhotos(
@@ -173,7 +206,8 @@ function sleep(ms: number): Promise<void> {
 async function callGemini(
   parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }>,
   systemPrompt: string,
-  apiKey: string
+  apiKey: string,
+  activeTemplate?: string
 ): Promise<string | null> {
   const cleanKey = encodeURIComponent(apiKey.trim());
 
@@ -241,7 +275,7 @@ async function callGemini(
 
         console.log(`[FormReader] [${modelCfg.name}] duration: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
-        if (isValidResponse(resultText)) {
+        if (isValidResponse(resultText, activeTemplate)) {
           return resultText;
         }
         console.warn(`[FormReader] [${modelCfg.name}] Attempt ${attempt}: response did not match template keys, retrying...`);
@@ -819,7 +853,7 @@ export class FormReaderManager {
   }
 
   private getEffectiveApiKey(overrideKey?: string): string {
-    if (overrideKey !== undefined) return overrideKey.trim();
+    if (overrideKey && overrideKey.trim()) return overrideKey.trim();
     const s = loadSettings();
     return (s.formReaderApiKey || process.env.GEMINI_API_KEY || '').trim();
   }
@@ -938,7 +972,12 @@ export class FormReaderManager {
         text: 'Yukarıdaki sayfalar aynı müşteri formuna aittir. Şablona göre çıktı üret.'
       });
 
-      const result = await callGemini(parts, IMAGE_SYSTEM_PROMPT, apiKey);
+      const settings = loadSettings();
+      const { imagePrompt, template } = buildFormReaderPrompts(
+        settings.formReaderCustomRules,
+        settings.formReaderCustomTemplate
+      );
+      const result = await callGemini(parts, imagePrompt, apiKey, template);
       if (!result) {
         return {
           ok: false,
@@ -963,10 +1002,16 @@ export class FormReaderManager {
       return { ok: false, error: 'Fotoğraf veya metin girilmedi.' };
     }
 
+    const settings = loadSettings();
+    const { textPrompt, template } = buildFormReaderPrompts(
+      settings.formReaderCustomRules,
+      settings.formReaderCustomTemplate
+    );
     const result = await callGemini(
       [{ text: `Taranan Form Metni:\n\n${rawText}` }],
-      SYSTEM_PROMPT,
-      apiKey
+      textPrompt,
+      apiKey,
+      template
     );
     if (!result) {
       return {
@@ -1018,7 +1063,12 @@ export class FormReaderManager {
         return;
       }
 
-      const parsed = (await callGemini([{ text: `Taranan Form Metni:\n\n${rawText}` }], SYSTEM_PROMPT, apiKey)) || rawText;
+      const settings = loadSettings();
+      const { textPrompt, template } = buildFormReaderPrompts(
+        settings.formReaderCustomRules,
+        settings.formReaderCustomTemplate
+      );
+      const parsed = (await callGemini([{ text: `Taranan Form Metni:\n\n${rawText}` }], textPrompt, apiKey, template)) || rawText;
       writeClipboardMarked(parsed);
       this.emitResult(parsed, 'phone-clip');
 
@@ -1055,7 +1105,12 @@ export class FormReaderManager {
         text: 'Yukarıdaki sayfalar aynı müşteri formuna aittir. Şablona göre çıktı üret.'
       });
 
-      const result = await callGemini(parts, IMAGE_SYSTEM_PROMPT, apiKey);
+      const settings = loadSettings();
+      const { imagePrompt, template } = buildFormReaderPrompts(
+        settings.formReaderCustomRules,
+        settings.formReaderCustomTemplate
+      );
+      const result = await callGemini(parts, imagePrompt, apiKey, template);
       if (!result) {
         res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(

@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // AI Form Reader (OCR & Form Parser)
     getFormReaderStatus: () => safeInvoke('form-reader:status'),
+    getFormReaderDefaults: () => safeInvoke('form-reader:get-defaults'),
     startFormReader: () => safeInvoke('form-reader:start'),
     stopFormReader: () => safeInvoke('form-reader:stop'),
     processFormFromPc: (payload: any) => safeInvoke('form-reader:process-pc', payload),

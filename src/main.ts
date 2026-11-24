@@ -27,7 +27,7 @@ import { WindowManager } from './windowManager';
 import { loadSettings, saveSettings, AppSettings } from './settingsManager';
 import { ClipboardMonitor } from './clipboardMonitor';
 import { TextExpanderManager } from './textExpanderManager';
-import { FormReaderManager } from './formReaderServer';
+import { FormReaderManager, COMPLAINT_RULES, DETAILED_COMPLAINT_RULES, FORM_TEMPLATE } from './formReaderServer';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { autoUpdater } from 'electron-updater';
@@ -206,19 +206,23 @@ function setupIpcHandlers() {
   ipcMain.handle('clear-cache', async () => await clearCache());
   ipcMain.handle('get-double-copy', async () => currentSettings.doubleCopyEnabled);
 
-  ipcMain.handle('get-settings', async () => ({
-    popupTimeout: currentSettings.popupTimeout,
-    popupSizeLevel: currentSettings.popupSizeLevel,
-    doubleCopyEnabled: currentSettings.doubleCopyEnabled,
-    autoStartEnabled: currentSettings.autoStartEnabled,
-    preventDuplicatePopup: currentSettings.preventDuplicatePopup,
-    clipboardUpperEnabled: currentSettings.clipboardUpperEnabled !== false,
-    shortcuts: currentSettings.shortcuts,
-    theme: currentSettings.theme || 'dark'
-  }));
+  ipcMain.handle('get-settings', async () => {
+    currentSettings = loadSettings();
+    return {
+      ...currentSettings,
+      clipboardUpperEnabled: currentSettings.clipboardUpperEnabled !== false,
+      soundEnabled: currentSettings.soundEnabled !== false,
+      formReaderTabEnabled: currentSettings.formReaderTabEnabled === true,
+      formReaderApiKey: currentSettings.formReaderApiKey || '',
+      formReaderCustomRules: currentSettings.formReaderCustomRules || '',
+      formReaderCustomTemplate: currentSettings.formReaderCustomTemplate || '',
+      theme: currentSettings.theme || 'dark'
+    };
+  });
 
   ipcMain.handle('save-settings', async (_, settings) => {
-    currentSettings = { ...currentSettings, ...settings };
+    const latestFromDisk = loadSettings();
+    currentSettings = { ...latestFromDisk, ...currentSettings, ...settings };
     saveSettings(currentSettings);
     registerShortcuts();
 
@@ -231,7 +235,8 @@ function setupIpcHandlers() {
 
   ipcMain.handle('restart-app', async (_, settings) => {
     if (settings) {
-      currentSettings = { ...currentSettings, ...settings };
+      const latestFromDisk = loadSettings();
+      currentSettings = { ...latestFromDisk, ...currentSettings, ...settings };
       saveSettings(currentSettings);
     }
     app.relaunch();
@@ -361,6 +366,12 @@ function setupIpcHandlers() {
   ipcMain.handle('form-reader:status', async () => {
     return formReader.getStatus();
   });
+
+  ipcMain.handle('form-reader:get-defaults', async () => ({
+    defaultRules: COMPLAINT_RULES.trim(),
+    detailedRules: DETAILED_COMPLAINT_RULES.trim(),
+    defaultTemplate: FORM_TEMPLATE.trim()
+  }));
 
   ipcMain.handle('form-reader:start', async () => {
     currentSettings = loadSettings();
